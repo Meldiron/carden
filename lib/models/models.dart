@@ -531,9 +531,27 @@ class Pack {
   /// hidden unless a pack code put it in [owned].
   bool visibleTo(Set<String> owned, DateTime now) => hidden ? owned.contains(id) : isReleasedAt(now);
 
+  static const _months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  /// Names that say nothing on their own. A daily month stored under one of them (24 months of 2023
+  /// and 2024 were called "Daily" until 2026-10-18) shows its month instead.
+  static const _bareNames = {'', 'daily', 'dailies', 'daily pack', 'daily puzzle', 'daily puzzles', 'daily picture', 'daily pictures', 'month', 'pack', 'untitled'};
+
+  /// The name the app shows for a pack row: the stored [name], except that a daily month (category
+  /// Daily, id `daily-YYYY-MM`) whose name is empty or a bare generic word shows "Month Year"
+  /// ("October 2024"), as the content tool names them. Library, pack page, Home and the completion
+  /// overlay all read [Pack.name], so they all show it.
+  static String nameFor(String id, String category, String name) {
+    if (category != 'Daily' || !_bareNames.contains(name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' '))) return name;
+    final m = RegExp(r'^daily-(\d{4})-(\d{2})$').firstMatch(id);
+    final month = m == null ? 0 : int.parse(m.group(2)!);
+    if (month < 1 || month > 12) return name;
+    return '${_months[month - 1]} ${m!.group(1)}';
+  }
+
   factory Pack.fromRow(String id, Map<String, dynamic> d) => Pack(
         id: id,
-        name: _s(d['name']),
+        name: nameFor(id, _s(d['category'], 'general'), _s(d['name'])),
         category: _s(d['category'], 'general'),
         description: _s(d['description']),
         coverUrl: _s(d['coverUrl']),

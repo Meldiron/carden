@@ -1,6 +1,6 @@
 {
- "name": "Daily", "category": "Daily", "kind": "daily",
- "description": "One pleasant, varied picture for every day of the month.",
+ "category": "Daily", "kind": "daily",
+ "_note": "No name/description on purpose: finalize_pack would copy them onto every month and overwrite the month names ('October 2024'); until 2026-10-18 this spec said \"Daily\", which named all 12 months of its year 'Daily'.",
  "sources": ["commons"], "per_topic": 2, "fetch_per_topic": 6, "author_cap": 3,
  "topics": [
   "Plitvice lakes waterfall", "Antelope Canyon sandstone", "Skogafoss waterfall Iceland", "bamboo forest Arashiyama",

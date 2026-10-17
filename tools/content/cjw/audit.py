@@ -3,6 +3,7 @@ import datetime as dt, json, re, time, calendar as cal
 from .paths import REPORTS
 from . import catalog, imagecache, filters, state
 from .pool import HashIndex
+from .writer import daily_month_label
 
 def _twin(a, b):
     """evpack-<slug>-2026 and evpack-<slug>-2027 are the same event in different years."""
@@ -33,6 +34,9 @@ def audit(snap, only=None, write=True):
         if len(puzzles) < filters.MIN_COUNT:
             r['issues'].append(f'count {len(puzzles)} < {filters.MIN_COUNT}'); summary['count'] += 1
         if pack['category'] == 'Daily' or pid.startswith('daily-'):
+            label = daily_month_label(pid)
+            if label and pack.get('name') != label:
+                r['issues'].append(f"name {pack.get('name')!r} is not {label!r} (finalize the pack, or tools/dev/fix_daily_pack_names.py)")
             dates = [ (p.get('date') or '')[:10] for p in puzzles]
             y, m = map(int, pid.split('-')[1:3])
             days = cal.monthrange(y, m)[1]

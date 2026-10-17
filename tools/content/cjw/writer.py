@@ -4,6 +4,19 @@ from datetime import datetime, timezone
 from . import host, api, catalog, imagecache, state, filters, checkpoint
 from .pool import load_pool, save_pool, nice_title, HashIndex
 
+_MONTHS = ('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December')
+
+def daily_month_label(pack_id):
+    """'October 2024' for a daily month pack (daily-YYYY-MM), else None. Daily months are always named
+    after their month (the app shows it in the Library, on the pack page, Home and the completion overlay)."""
+    import re
+    m = re.fullmatch(r'daily-(\d{4})-(\d{2})', pack_id or '')
+    if not m or not 1 <= int(m.group(2)) <= 12: return None
+    return f'{_MONTHS[int(m.group(2)) - 1]} {m.group(1)}'
+
+def daily_description(label):
+    return f"One fresh picture for every day of {label}. Solve today's for a bonus."
+
 def puzzle_id_for(url, pack_id=''):
     return 'p-' + hashlib.sha1((pack_id + '|' + url).encode()).hexdigest()[:12]
 
@@ -185,8 +198,16 @@ def finalize_pack(spec, snap, accent=None):
             data['accent'] = m['accent']
     if accent and accent != pack.get('accent') and 'accent' not in data and spec.get('accent'):
         data['accent'] = accent
-    for k in ('name', 'description'):
-        if spec.get(k) and spec[k] != pack.get(k): data[k] = spec[k][:256 if k == 'description' else 64]
+    label = daily_month_label(pack_id)
+    if label:
+        # A daily month keeps its month name and never takes a shared daily spec's name or description:
+        # daily-2023.json and daily-2024.json said "Daily", which named all 24 months of those years
+        # "Daily" until 2026-10-18 (tools/dev/fix_daily_pack_names.py repaired the rows).
+        if pack.get('name') != label: data['name'] = label
+        if label not in (pack.get('description') or ''): data['description'] = daily_description(label)
+    else:
+        for k in ('name', 'description'):
+            if spec.get(k) and spec[k] != pack.get(k): data[k] = spec[k][:256 if k == 'description' else 64]
     if data:
         api.update_row('packs', pack_id, data)
         state.log('pack-update', pack=pack_id, fields=sorted(data))
@@ -201,10 +222,10 @@ def new_daily(spec, snap, month, picks=(), dry=False):
     """Create a daily month pack (daily-YYYY-MM): the pack row and one dated puzzle per day, filled from
     the spec's pool. Idempotent: existing day rows are kept, only missing days are created. Review the
     sheet afterwards and fix rejects with `apply` (daily packs replace in place)."""
-    import calendar, datetime
+    import calendar
     y, mo = (int(x) for x in month.split('-'))
     pack_id = f'daily-{y:04d}-{mo:02d}'
-    label = datetime.date(y, mo, 1).strftime('%B %Y')
+    label = daily_month_label(pack_id)
     spec = dict(spec, id=pack_id)
     packs = catalog.pack_index(snap)
     if pack_id not in packs:
@@ -212,7 +233,7 @@ def new_daily(spec, snap, month, picks=(), dry=False):
             print(f'{pack_id}: pack row would be created ({label})')
         else:
             # standard tier of tools/store/apply_pack_prices.py: 100 coins per day (2,800 to 3,100)
-            data = dict(name=label, category='Daily', description=f"One fresh picture for every day of {label}. Solve today's for a bonus.",
+            data = dict(name=label, category='Daily', description=daily_description(label),
                         priceCoins=100 * calendar.monthrange(y, mo)[1], priceTickets=0, isFree=False, isPremium=False, isSeasonal=False, sortOrder=100,
                         accent='', emoji='', coverUrl='', imageCount=0)
             api.create_row('packs', data, row_id=pack_id)
