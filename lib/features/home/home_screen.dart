@@ -13,6 +13,7 @@ import '../../game/board.dart';
 import '../../models/models.dart';
 import '../../state/auth.dart';
 import '../../state/catalog.dart';
+import '../../state/daily_gift.dart';
 import '../../state/first_steps.dart';
 import '../../state/profile.dart';
 import '../../state/progress.dart';
@@ -758,9 +759,11 @@ class _StreakCard extends ConsumerWidget {
     final streak = profile.currentStreak;
     final available = profile.dailyAvailable;
     final missed = !profile.streakAlive && profile.streak > 0;
-    final nextIdx = profile.nextGiftDay;
-    final filled = profile.giftsClaimedThisRound;
-    final next = Economy.dailyRewards[nextIdx];
+    // The dots carry the streak's own days (8 to 14 in the second week, see GiftWeek).
+    final week = GiftWeek.forProfile(profile);
+    final nextIdx = week.nextIndex;
+    final filled = week.claimed;
+    final next = Economy.dailyRewards[profile.nextGiftDay];
     final title = streak > 0 ? '$streak-day streak' : (missed ? 'Streak ended' : 'Start a streak');
     final status = missed
         ? (canRestore ? 'Missed a day after ${profile.streak} days' : 'Missed a day · claim to start again')
@@ -806,7 +809,7 @@ class _StreakCard extends ConsumerWidget {
                         Text('Keep your streak',
                             maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: TypeSize.footnote, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 1),
-                        Text('Today becomes day ${profile.streak % 7 + 1}',
+                        Text('Today becomes day ${profile.streak + 1}',
                             maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: TypeSize.caption, color: c.textSecondary)),
                       ],
                     ),
@@ -829,24 +832,35 @@ class _StreakCard extends ConsumerWidget {
               children: [
                 for (var i = 0; i < 7; i++) ...[
                   Expanded(
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: i < filled ? context.accentFill : Colors.transparent,
-                            border: Border.all(color: i < filled ? context.accentFill : (i == nextIdx ? context.accent : c.stroke), width: i == nextIdx && i >= filled ? 1.5 : 1),
-                          ),
-                          child: i < filled
-                              ? Icon(AppIcons.checkmark, size: 12, color: context.onAccent)
-                              // Differentiate without colour: the next gift's ring has a dot inside.
-                              : (i == nextIdx && A11y.symbolsOf(context) ? Center(child: Container(width: 6, height: 6, decoration: BoxDecoration(color: context.accent, shape: BoxShape.circle))) : null),
+                    // VoiceOver reads each dot as its day: "Day 8, claimed", "Day 9, tomorrow".
+                    child: Semantics(
+                      container: true,
+                      label: 'Day ${week.dayAt(i)}${i < filled ? ', claimed' : (i == nextIdx ? (available ? ', today' : ', tomorrow') : '')}',
+                      child: ExcludeSemantics(
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: i < filled ? context.accentFill : Colors.transparent,
+                                border: Border.all(color: i < filled ? context.accentFill : (i == nextIdx ? context.accent : c.stroke), width: i == nextIdx && i >= filled ? 1.5 : 1),
+                              ),
+                              child: i < filled
+                                  ? Icon(AppIcons.checkmark, size: 12, color: context.onAccent)
+                                  // Differentiate without colour: the next gift's ring has a dot inside.
+                                  : (i == nextIdx && A11y.symbolsOf(context) ? Center(child: Container(width: 6, height: 6, decoration: BoxDecoration(color: context.accent, shape: BoxShape.circle))) : null),
+                            ),
+                            const SizedBox(height: 4),
+                            // A long streak's three digits shrink rather than wrap.
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('${week.dayAt(i)}', maxLines: 1, style: TextStyle(fontSize: TypeSize.micro, fontWeight: FontWeight.w600, color: c.textTertiary)),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text('${i + 1}', style: TextStyle(fontSize: TypeSize.micro, fontWeight: FontWeight.w600, color: c.textTertiary)),
-                      ],
+                      ),
                     ),
                   ),
                 ],
