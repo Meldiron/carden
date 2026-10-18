@@ -477,10 +477,11 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
 - Not yet done (owner): an In-App Purchase key for the App Store Server API in Production (the App Store Connect key
   works in Sandbox only; `tools/dev/apple_notifications.py`), refreshing the local
   team profile in Xcode before the next `tools/dev/device.sh` (it lacks Push Notifications and Associated
-  Domains), App Store submission (Paid Apps agreement, banking and tax active since 2026-10-14),
-  Mac / Vision Pro availability ticks, restoring
+  Domains), App Store submission (Paid Apps agreement, banking and tax active since 2026-10-14; the review draft
+  holds 2.0.0 with build 127, the 8 products, both VIP plans and 15 In-App Events), restoring
   `secrets/appwrite-storage-key.txt` (the content tool falls back to the users key). The App Privacy answers
-  (analytics, push token) were submitted by the owner on 2026-10-17; CI runs the `api` and `verify-purchase`
+  (analytics, push token) were submitted by the owner on 2026-10-17; App Store availability on Apple silicon Macs
+  and Apple Vision Pro was ticked by the owner on 2026-10-18; CI runs the `api` and `verify-purchase`
   function tests (`.github/workflows/ci.yml`).
 - App Review screenshots for products are per product in `store/metadata/subscriptions/consumables.json`
   (`store/review/iap-review.png` top of the store; `iap-review-boosters.png` from `raw/35_store_boosters_light` via
