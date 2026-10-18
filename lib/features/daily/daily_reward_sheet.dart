@@ -420,9 +420,9 @@ class _DayRow extends StatelessWidget {
 
 /// A gift in words, for VoiceOver: "100 coins, 1 ticket".
 String giftWords(({int coins, int tickets, int hints}) r) => [
-      '${r.coins} coins',
-      if (r.tickets > 0) '${r.tickets} ticket${r.tickets == 1 ? '' : 's'}',
-      if (r.hints > 0) '${r.hints} hint${r.hints == 1 ? '' : 's'}',
+      countOf(r.coins, 'coin'),
+      if (r.tickets > 0) countOf(r.tickets, 'ticket'),
+      if (r.hints > 0) countOf(r.hints, 'hint'),
     ].join(', ');
 
 /// The streak restore offer as one row: what happened, what it brings back,
