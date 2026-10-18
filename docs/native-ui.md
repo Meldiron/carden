@@ -137,3 +137,16 @@ always plays. A run of ticks along an animation (`Haptics.run`) is at most 5, at
 | The picture that finishes its pack | success once more after the stars |
 | Rewards claimed, purchases, the Lucky Wheel's prize | success |
 
+## Shake to send feedback
+
+A shake of the iPhone on any screen opens Send feedback (the Settings > Help form) as a sheet on the
+root navigator (owner, 2026-10-18). Native side: `ShakeToFeedback` in `ios/Runner/AppDelegate.swift`
+(`motionEnded` on `UIWindow`, which every shake reaches through the responder chain; the app delegate
+never hears one, UIApplication keeps them for shake-to-undo) sends `shake` on channel `cjw/shake`,
+only while nothing native (a system alert, the share sheet) is over the game. Dart side: `ShakeChannel` (`lib/core/shake.dart`) and `ShakeFeedbackHost`
+(`lib/features/profile/shake_feedback.dart`, in `app.dart`): one form at a time, never over one of
+the app's alerts or action sheets, only while the app is in front. Settings > Help > Shake to send
+feedback (on by default, `shakeFeedback` on the device) turns it off; the web has neither the row
+nor the listener. Analytics: `feedback_opened` with `via: shake`. On the simulator: Device > Shake
+(ctrl+cmd+z), or from a script `xcrun simctl spawn <udid> notifyutil -p com.apple.UIKit.SimulatorShake`
+(QA: `integration_test/shake_feedback_test.dart`).

@@ -342,3 +342,29 @@ final class DailyReminders: NSObject, UNUserNotificationCenterDelegate {
     completionHandler()
   }
 }
+
+// MARK: - Shake to send feedback
+
+/// A shake of the iPhone opens the game's feedback form (Dart side: lib/core/shake.dart and
+/// lib/features/profile/shake_feedback.dart; Settings > Help > Shake to send feedback turns it off).
+/// UIKit sends a shake to the key window's first responder (the Flutter view, or the text field being
+/// typed in) and on up the responder chain to the window, where it arrives with or without a first
+/// responder. Not on this delegate: UIApplication, further up, keeps shakes for shake-to-undo and
+/// never passes them on (checked on the simulator, 2026-10-18).
+extension UIWindow {
+  override open func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+    if motion == .motionShake, isKeyWindow { ShakeToFeedback.shaken(in: self) }
+    super.motionEnded(motion, with: event)
+  }
+}
+
+/// Channel `cjw/shake`: `shake` (no arguments) to Dart. Sent only while the game itself is on top:
+/// not under a system alert, the share sheet or any other screen iOS presents over Flutter.
+enum ShakeToFeedback {
+  static func shaken(in window: UIWindow) {
+    guard let flutter = window.rootViewController as? FlutterViewController,
+          flutter.presentedViewController == nil
+    else { return }
+    FlutterMethodChannel(name: "cjw/shake", binaryMessenger: flutter.binaryMessenger).invokeMethod("shake", arguments: nil)
+  }
+}

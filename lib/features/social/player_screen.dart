@@ -210,11 +210,12 @@ Future<void> _showPlayerMenu(BuildContext context, Profile p, {required bool blo
   if (!context.mounted) return;
   switch (choice) {
     case 'report':
-      showReportSheet(context, p);
+      // Report with "Also block" closes the profile too, like Block.
+      if (await showReportSheet(context, p) && context.mounted) leaveBlockedProfile(context);
     case 'unblock':
       unblockPlayer(context, p.userId, p.displayName);
     case 'block':
-      confirmBlock(context, p);
+      if (await confirmBlock(context, p) && context.mounted) leaveBlockedProfile(context);
   }
 }
 

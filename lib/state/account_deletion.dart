@@ -43,6 +43,8 @@ class AccountDeletion {
       for (final key in deviceSaveKeys(deletedId)) {
         await store.remove(key);
       }
+      // On the iPhone the copy of the rows is a file (lib/data/sync/device_copy.dart).
+      await _ref.read(syncRowsProvider).remove(deletedId);
     }
     await store.remove(SaveMerge.pendingKey);
     await store.remove(FirstSteps.storeKey);

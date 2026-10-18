@@ -13,6 +13,7 @@ import 'package:carden/core/appwrite.dart';
 import 'package:carden/core/sfx.dart';
 import 'package:carden/data/local_store.dart';
 import 'package:carden/features/onboarding/onboarding_screen.dart';
+import 'package:carden/features/social/player_screen.dart';
 import 'package:carden/router.dart';
 import 'package:carden/widgets/icons.dart';
 import 'package:carden/state/auth.dart';
@@ -119,6 +120,10 @@ void main() {
     expect(find.text('Block ${target.displayName}?'), findsOneWidget);
     await shot(tester, 'ps_03_block_alert');
     await tapText(tester, 'Block', last: true, ms: 3000);
+    // The profile closes after a block (TestFlight feedback, 2026-10-18); opened again, it says Blocked.
+    expect(find.byType(PlayerScreen), findsNothing);
+    router.push('/player/${target.id}');
+    await settle(tester, 3500);
     expect(find.byKey(const ValueKey('player-blocked')), findsOneWidget);
     await tapKey(tester, 'player-more', ms: 800);
     expect(find.byKey(const ValueKey('player-unblock')), findsOneWidget);

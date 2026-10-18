@@ -187,3 +187,26 @@ class SyncNotice {
   String toString() => 'SyncNotice(coins $coins, tickets $tickets, hints $hints, peeks $peeks, magics $magics, level $level, solved $solved, better $betterStars, '
       'boards $boards, packs $packs, quests $quests, achievements $achievements, daily $dailyStreak, skipped $skipped)';
 }
+
+/// Which devices changed the save between two reads of the profile row. Every profile op adds its id
+/// to `appliedOps`, and an op id begins with the four characters naming its device (`SyncOp.device`;
+/// each device keeps its newest ids there, `SyncController.keepOwnIds`). A server-side change (a
+/// purchase added by the `api` function) leaves no id.
+class SyncSource {
+  const SyncSource({required this.mine, required this.elsewhere});
+
+  factory SyncSource.of({required Iterable<String> before, required Iterable<String> after, required String device}) {
+    final had = before.toSet();
+    final arrived = [for (final id in after) if (!had.contains(id)) id];
+    return SyncSource(mine: arrived.any((id) => id.startsWith(device)), elsewhere: arrived.any((id) => !id.startsWith(device)));
+  }
+
+  /// Ops of this device arrived.
+  final bool mine;
+
+  /// Ops of another device arrived.
+  final bool elsewhere;
+
+  /// Only this device's ops arrived: what changed is this device's own play.
+  bool get thisDeviceOnly => mine && !elsewhere;
+}

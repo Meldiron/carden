@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics.dart';
 import '../../core/haptics.dart';
 import '../../core/links.dart';
 import '../../core/platform.dart';
@@ -34,11 +35,19 @@ Future<void> contactSupport(BuildContext context, WidgetRef ref) async {
 }
 
 /// Settings > Send feedback: one text field; the message goes to the `feedback` table, which only
-/// the developer reads (`tools/dev/feedback.py`).
-Future<void> showFeedbackSheet(BuildContext context) => showAppSheet(context, builder: (_) => const FeedbackPanel());
+/// the developer reads (`tools/dev/feedback.py`). [via] says what opened it: `settings`, or `shake`
+/// (a shake of the iPhone on any screen, lib/features/profile/shake_feedback.dart).
+Future<void> showFeedbackSheet(BuildContext context, {String via = 'settings'}) {
+  AppAnalytics.event('feedback_opened', {'via': via});
+  return showAppSheet(context, builder: (_) => const FeedbackPanel());
+}
 
 class FeedbackPanel extends ConsumerStatefulWidget {
   const FeedbackPanel({super.key});
+
+  /// A feedback form is on screen (from Settings or a shake): a shake opens no second one.
+  static bool get isOpen => _open > 0;
+  static int _open = 0;
 
   @override
   ConsumerState<FeedbackPanel> createState() => _FeedbackPanelState();
@@ -51,11 +60,13 @@ class _FeedbackPanelState extends ConsumerState<FeedbackPanel> {
   @override
   void initState() {
     super.initState();
+    FeedbackPanel._open++;
     _controller.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
+    FeedbackPanel._open--;
     _controller.dispose();
     super.dispose();
   }

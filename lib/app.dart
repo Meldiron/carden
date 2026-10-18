@@ -14,6 +14,7 @@ import 'core/theme/app_theme.dart';
 import 'features/coop/coop_host.dart';
 import 'features/links/deep_links.dart';
 import 'features/notifications/notification_prompt.dart';
+import 'features/profile/shake_feedback.dart';
 import 'features/store/purchase_host.dart';
 import 'features/sync/sync_host.dart';
 import 'features/update/update_host.dart';
@@ -199,7 +200,7 @@ class _CardenAppState extends ConsumerState<CardenApp> with WidgetsBindingObserv
         final host = Scaffold(
           resizeToAvoidBottomInset: false,
           backgroundColor: Colors.transparent,
-          body: ScaffoldMessenger(child: UpdateHost(child: SyncHost(child: PurchaseHost(child: CoopHost(child: NotificationPromptHost(child: child!)))))),
+          body: ScaffoldMessenger(child: UpdateHost(child: SyncHost(child: PurchaseHost(child: CoopHost(child: NotificationPromptHost(child: ShakeFeedbackHost(child: child!))))))),
         );
         // Text follows the system size up to iOS "xxxLarge" (1.35), unless Settings > Accessibility
         // picks Large (150%) or Largest (200%); bars cap themselves at 1.2 (ChromeText).

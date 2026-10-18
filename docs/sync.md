@@ -20,7 +20,8 @@ sometimes without a connection. This is how the save stays correct (since 2026-1
 3. **Reload on start, resume, tab focus and sign-in.** The rows are read again (progress
    incrementally from the newest `$updatedAt`). Whatever another device changed is shown once in
    the "Synced from another device" alert (`SyncHost`, never during a game). A purchase on this
-   device and a sign-in merge are taken in silently.
+   device and a sign-in merge are taken in silently, and so is this device's own play that the copy
+   on the device missed (see "The first read after a start").
 4. **Records only improve.** A win keeps the better stars, best moves and best time of the
    server's row and this play; a solved picture stays solved (board saves never touch
    `completed`, and a finish time counts as solved for rows older versions un-solved during a
@@ -62,13 +63,59 @@ deletes the other player's row meanwhile (docs/functions.md, "Integrity sweep"),
 and block rows go under a unique id when their predictable one is taken (`SocialRepository._ownRow`)
 and are found by their columns when removed.
 
+## The first read after a start
+
+The first read of a run compares the server with the copy of the save stored on the device
+(`sync.v1.<userId>.rows`), and that copy can lack this device's own last writes. It did on iPhones
+up to build 127: the catalogue (5.6 MB) was kept in SharedPreferences, over the 4 MB iOS allows for
+an app's preferences ("Attempting to store >= 4194304 bytes of data in CFPreferences/NSUserDefaults
+on this platform is invalid"), and iOS then stored none of the app's later writes. A fresh guest
+finished the first board, the next start found the save from before it, and the alert said
+"Synced from another device: +17 coins, 1 picture solved" (TestFlight feedback, 2026-10-18; from
+the next build the catalogue is a file, docs/catalog-sync.md). The welcome pages coming back after Skip had
+the same cause (`onboarded` was never stored).
+
+Since then the copy of the rows is a file on the iPhone (next section), and that first read tells
+only what another device or the server did (`SyncSource` in
+`lib/data/sync/notice.dart`, `SyncController._fetch`):
+
+- Profile: the op ids that arrived in `appliedOps` since the stored copy name their device (the
+  first four characters). Only this device's ids: its own play, nothing to tell. Another device's
+  ids: the differences are told as before. No ids at all but different values: a change the server
+  made (a purchase added by `api`), told as before.
+- Progress: a changed row of a play-through this device started (its `session` begins with the
+  device's name) is not told either, unless another device's ids arrived too (it may have finished
+  one of them). The rows themselves are always taken, and an open game still follows its board.
+
+Later reads in the same run compare with rows this device read or wrote itself and are unchanged.
+For this to work a device keeps its newest 10 op ids on the profile row when it tidies them
+(`SyncController.keepOwnIds`, below).
+
+## The copy on the device
+
+Two things per player: the queue of unsent ops (`sync.v1.<userId>.ops`, SharedPreferences) and the
+copy of the rows (`{profile, progress, cursor, synced}`, `SyncRows` in
+`lib/data/sync/device_copy.dart`). The copy grows with every picture (about 0.8 KB a row in October
+2026, the heaviest player 271 rows and 213 KB; a full finish log adds up to 4 KB a row, and one
+character outside ASCII makes iOS store the whole string at 2 bytes a character), so a player with a
+few thousand pictures would pass the 4 MB that NSUserDefaults allows an app. On the iPhone it is
+therefore a file of its own, `<Application Support>/sync/<userId>.rows.json` (`FileSyncRows`, opened
+in `main.dart`): written in the background, one write at a time and only the newest, next to the file
+and renamed over it. A copy that a build up to 127 left in SharedPreferences (`sync.v1.<userId>.rows`)
+moves to the file on the first start and leaves SharedPreferences; if an older build is installed
+again it finds no copy there and reads every row from the server, quietly, and its queued ops are
+where it left them (the queue stays in SharedPreferences: it is small). The web keeps the copy in
+localStorage (`PrefsSyncRows`), as do the unit tests. Account deletion removes the file
+(`AccountDeletion.startOver`).
+
 ## Exactly once
 
 A request can reach the server and lose its answer. Every profile op appends its id to
 `profiles.appliedOps` (event steps to `event_progress.appliedOps`); before an op is sent again (or
 on the next fetch) the controller checks that list, so the op is never applied twice. Op ids start
 with four characters naming the device (`syncDevice` in its storage): a device removes its own ids
-once their ops are confirmed (when it holds more than 20), and any id older than 30 days goes.
+once their ops are confirmed (when it holds more than 20; its newest 10 stay, so the row always shows
+which device changed the save last), and any id older than 30 days goes.
 Progress ops are idempotent by design (a win recognises its own write by play-through and finish
 time). Ledger rows have fixed ids (`<op id>-<n>`). The stored rows are written before the confirmed
 op is dropped, so a restart never mistakes this device's own play for another device's.
@@ -151,6 +198,13 @@ spent). A sign-in merge takes the chosen save's map. Older builds ignore the col
   one (two devices playing the same board at the same time).
 - Two browser tabs of the web site share one queue in localStorage; if both queue changes while
   offline and one closes before the connection returns, its queue can be overwritten by the other.
+- The web keeps the copy of the rows in localStorage (5 MB per site, shared with the queue and the
+  settings): a player with several thousand pictures would fill it, and the copy would then not be
+  stored (the next visit reads every row again, quietly). Move it to IndexedDB, as the catalogue,
+  before that matters.
+- After a start, a board this device started and another device continued without any profile op
+  (board saves only) updates quietly: the alert has no "Board in progress" line for it (an open game
+  still follows it). The first read cannot tell that save from this device's own lost one.
 - Purchases (`/purchase/verify` on `api`, and `verify-purchase` for builds up to 124) add the grant
   with atomic increments (`Operator.increment`), so a change from the player's device in the same
   instant is kept.
@@ -164,6 +218,15 @@ spent). A sign-in merge takes the chosen save's map. Older builds ignore the col
   row another player made first (the op parked quietly, the rest sent, the save landing on the next
   start or a later resume, a 401 without a session still waiting; friend and block rows under a unique
   id).
+- `test/sync_first_board_test.dart`: a fresh guest's first board, then a start whose stored copy
+  lost it (no notice), another device's daily gift and picture on that start (told), a purchase the
+  server added (told), `SyncSource`, and the newest own op ids kept on the row.
+- `test/sync_device_copy_test.dart`: the copy as a file (newest last, read before it is on disk), a
+  build-127 copy moving out of SharedPreferences, an older build's copy winning, removal, and a
+  player's 40 pictures staying out of SharedPreferences through the sync.
+- `integration_test/first_board_sync_test.dart`: a fresh QA guest plays the guided first board on
+  the simulator to Home, then a resume: no "Synced from another device" (`fbs_*.png`), and the copy
+  of the rows is a file.
 - `integration_test/sync_devices_test.dart`: the app on the simulator is the iPhone, a second
   sync in the same process (own storage, same session) is the laptop, on the live backend:
   `tools/dev/qa-run.sh drive --driver=test_driver/integration_test.dart
