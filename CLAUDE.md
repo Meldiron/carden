@@ -194,6 +194,9 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   invalidating it); `packRowsProvider`, `allPuzzlesProvider` and `eventsProvider` read it.
   `packsProvider` is what screens see: `Pack.isReleasedAt` hides daily months until their first day and
   event packs until 3 days before they open (content is created up to a year ahead).
+  Daily month packs are always named "<Month> <Year>": `finalize_pack` keeps it (`daily_month_label`), so never put
+  `name`/`description` in a shared daily spec; the app shows that name for an empty or bare "Daily" (`Pack.nameFor`);
+  repair with `tools/dev/fix_daily_pack_names.py` (all 24 months of 2023-2024 fixed 2026-10-18).
 - **Catalogue sync** (`docs/catalog-sync.md`; the copy on the device: SharedPreferences on the iPhone, IndexedDB on
   the web, `CatalogCache`): `lib/state/catalog_sync.dart` (`CatalogSync`, snapshot +
   delta sync). A launch reads only rows changed since the newest one on the device (about 30 reads); the
@@ -267,6 +270,15 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   under `symbolsOf`, and no layout errors at Largest on the SE frame (design QA harness, scene pref
   `accessibility`). `test/accessibility_test.dart` checks defaults and Contrast ratios.
   `lib/core/sfx.dart`: `CJW_MUTE`. `lib/core/qa.dart`: `CJW_QA` / `CJW_QA_RUN` (test players).
+- Daily gift week: `GiftWeek` (`lib/state/daily_gift.dart`) numbers the 7-day ladder by the streak (Day 8-14 in
+  week two, Home dots and the sheet); the gifts still cycle `Economy.dailyRewards[(day-1)%7]`. QA:
+  `integration_test/streak_week_test.dart`.
+- Home Screen widget (`ios/DailyWidget`): today's picture from Storage `/preview?width=1080` (`/view` fallback), drawn
+  at the widget's exact pixels (`DailyPicture.swift`; WidgetKit refuses an image over about 4.4 times the widget's
+  pixel area and shows a grey placeholder: the grey square through build 126); the app asks for a reload on resume at
+  most once an hour. Check: `tools/dev/widget_picture_check.sh <udid>`; put it on a simulator's Home Screen with
+  `tools/dev/sim_home_widget.py add|restore <udid>`; its log: `xcrun simctl spawn <udid> log show --predicate
+  'process == "DailyWidget"'`.
 - Daily reminders: local iOS notifications, no server (friend-gift notifications are pushes, see Friend
   gifts). `lib/state/reminders.dart` (`planReminders`: one a
   day for a week at the Settings time, none on a day the daily gift is claimed; replanned on start, resume
