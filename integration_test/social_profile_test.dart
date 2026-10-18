@@ -14,6 +14,7 @@ import 'package:carden/state/settings.dart';
 import 'package:carden/state/rewards.dart';
 import 'package:carden/state/unlocks.dart';
 import 'package:carden/state/social.dart';
+import 'package:carden/widgets/glass.dart';
 import 'package:carden/widgets/icons.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -188,7 +189,7 @@ void main() {
     await tester.dragUntilVisible(find.text('See all'), find.byType(CustomScrollView).last, const Offset(0, -200));
     await settle(tester, 800);
     await tapText(tester, 'See all', ms: 1500);
-    await tester.dragUntilVisible(find.text('Hexagons'), find.byType(ListView).last, const Offset(0, -200));
+    await tester.dragUntilVisible(find.text('Hexagons'), find.byKey(SheetScrollBody.scrollKey), const Offset(0, -200));
     await settle(tester, 1500);
     await shot(tester, 's12_profile_stats');
   }, timeout: const Timeout(Duration(minutes: 8)));

@@ -9,6 +9,7 @@ import '../core/a11y.dart';
 import '../core/theme/tokens.dart';
 import 'glass.dart';
 import 'icons.dart';
+import 'sheets.dart';
 
 /// Layouts for wider windows: the web build in a tablet or desktop browser. The iPhone app is
 /// portrait only (at most 440 pt wide), so it always gets the compact layout, which is the
@@ -317,25 +318,11 @@ class PanelRoute<T> extends RawDialogRoute<T> {
         );
 }
 
-/// Whether [context] is inside a sheet: the stacked sheet on a phone or its centred panel on a
-/// wide window (a close button instead of a back arrow).
+/// Whether [context] is inside a sheet: the stacked sheet on a phone (with Reduce motion a
+/// [GlassSheetRoute]) or its centred panel on a wide window (a close button instead of a back arrow).
 bool isSheetRoute(BuildContext context) {
   final route = ModalRoute.of(context);
-  return route is CupertinoSheetRoute || route is PanelRoute || route is FadeSheetRoute;
-}
-
-/// The full-height sheets (Store, Wheel, Account) on a phone with Settings > Accessibility >
-/// Reduce motion: the page fades in over the screen instead of sliding up while the page behind
-/// shrinks back (a depth effect).
-class FadeSheetRoute<T> extends PageRouteBuilder<T> {
-  FadeSheetRoute({required WidgetBuilder builder, super.settings})
-      : super(
-          fullscreenDialog: true,
-          transitionDuration: const Duration(milliseconds: 260),
-          reverseTransitionDuration: const Duration(milliseconds: 200),
-          pageBuilder: (ctx, _, _) => builder(ctx),
-          transitionsBuilder: (_, anim, _, child) => FadeTransition(opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut), child: child),
-        );
+  return route is CupertinoSheetRoute || route is PanelRoute || route is GlassSheetRoute;
 }
 
 class _PanelFrame extends StatelessWidget {

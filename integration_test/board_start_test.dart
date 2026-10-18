@@ -370,12 +370,12 @@ void main() {
     await settle(tester, 2500);
     expect(find.byKey(const ValueKey('message-claimed')), findsOneWidget);
     await shot(tester, 'bs_22_message_claimed');
-    await tester.tap(find.byKey(const ValueKey('message-close')), warnIfMissed: false);
+    await tester.drag(find.byKey(const ValueKey('sheet-grabber')), const Offset(0, 500)); // closes the sheet
     await settle(tester, 1200);
     await tapText(tester, 'Ava sent you a gift', ms: 1500);
     expect(find.byKey(const ValueKey('message-gift-avatar')), findsOneWidget);
     await shot(tester, 'bs_23_friend_gift');
-    await tester.tap(find.byKey(const ValueKey('message-close')), warnIfMissed: false);
+    await tester.drag(find.byKey(const ValueKey('sheet-grabber')), const Offset(0, 500)); // closes the sheet
     await settle(tester, 1200);
 
     // Dark, Increase contrast, the largest text.
@@ -383,11 +383,11 @@ void main() {
     Future<void> openBoth(String name) async {
       await tapText(tester, 'Celebrating Carden 2.0', ms: 1500);
       await shot(tester, '${name}_carden');
-      await tester.tap(find.byKey(const ValueKey('message-close')), warnIfMissed: false);
+      await tester.drag(find.byKey(const ValueKey('sheet-grabber')), const Offset(0, 500)); // closes the sheet
       await settle(tester, 1200);
       await tapText(tester, 'Ava sent you a gift', ms: 1500);
       await shot(tester, '${name}_friend');
-      await tester.tap(find.byKey(const ValueKey('message-close')), warnIfMissed: false);
+      await tester.drag(find.byKey(const ValueKey('sheet-grabber')), const Offset(0, 500)); // closes the sheet
       await settle(tester, 1200);
     }
 

@@ -80,7 +80,7 @@ void main() {
     expect(find.byKey(const ValueKey('segment-badge-2')), findsOneWidget, reason: 'the Inbox segment has its dot');
     await shot(tester, 'ib_01_list');
 
-    // The launch message: Claim in its gift card, then Claimed; Close below.
+    // The launch message: Claim in its gift card, then Claimed; a drag down closes it.
     final coins = c.read(profileProvider).value!.coins;
     await tapText(tester, 'Celebrating Carden 2.0', ms: 1500);
     expect(find.byKey(const ValueKey('message-claim')), findsOneWidget);
@@ -90,7 +90,8 @@ void main() {
     expect(find.byKey(const ValueKey('message-claimed')), findsOneWidget, reason: 'the card says Claimed');
     expect(c.read(profileProvider).value!.coins, coins + 500);
     await shot(tester, 'ib_03_claimed');
-    await tester.tap(find.byKey(const ValueKey('message-close')), warnIfMissed: false);
+    // No close button (owner, 2026-10-18): a drag down closes the sheet.
+    await tester.drag(find.byKey(const ValueKey('sheet-grabber')), const Offset(0, 500));
     await settle(tester, 1500);
 
     // The early message's button opens Send feedback; opening it was the last unseen message.
@@ -104,9 +105,9 @@ void main() {
     expect(c.read(inboxUnseenProvider), isFalse);
     expect(find.byKey(const ValueKey('segment-badge-2')), findsNothing, reason: 'every message opened: no dot');
 
-    // Delete the early message (asks first).
-    await tapText(tester, 'Thanks for testing early', ms: 1500);
-    await tester.tap(find.byKey(const ValueKey('message-delete')), warnIfMissed: false);
+    // Delete the early message: its row swipes left, and it asks first (the sheet has no delete button).
+    final row = find.ancestor(of: find.text('Thanks for testing early'), matching: find.byType(Dismissible));
+    await tester.drag(row.first, const Offset(-500, 0));
     await settle(tester, 1200);
     await tapText(tester, 'Delete', ms: 2000);
     expect(find.text('Thanks for testing early'), findsNothing);

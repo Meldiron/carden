@@ -1,9 +1,7 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart' show Colors;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'core/a11y.dart';
 import 'core/analytics.dart';
 import 'core/app_links.dart';
 import 'core/platform.dart';
@@ -26,9 +24,7 @@ import 'features/social/player_screen.dart';
 import 'features/social/social_screen.dart';
 import 'features/store/store_screen.dart';
 import 'state/settings.dart';
-import 'core/theme/tokens.dart';
-import 'widgets/adaptive.dart';
-import 'widgets/glass.dart';
+import 'widgets/sheets.dart';
 
 /// The app's root navigator (alerts and sheets raised outside a screen, e.g. by the save sync).
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -177,27 +173,6 @@ Page<T> _fade<T>(Widget child, GoRouterState s) => CustomTransitionPage<T>(
       transitionDuration: const Duration(milliseconds: 320),
       transitionsBuilder: (_, a, _, c) => FadeTransition(opacity: CurveTween(curve: Curves.easeOut).animate(a), child: c),
     );
-Page<T> _sheet<T>(Widget child, GoRouterState s) => _SheetPage<T>(key: s.pageKey, name: screenNameFor(s.fullPath), child: child);
-
-/// iOS stacked sheet (UISheetPresentationController look): slides up to just
-/// below the status bar, the page behind scales back, drag down to dismiss. On a wide window
-/// (the web on a tablet or desktop) a centred panel instead, as iPad shows a page sheet.
-class _SheetPage<T> extends Page<T> {
-  const _SheetPage({required this.child, super.key, super.name});
-  final Widget child;
-
-  @override
-  Route<T> createRoute(BuildContext context) {
-    if (context.isWide) {
-      return PanelRoute<T>(
-        settings: this,
-        full: true,
-        maxWidth: PageWidth.panel,
-        barrierColor: Colors.black.withValues(alpha: context.isDark ? 0.5 : 0.32),
-        builder: (_) => Elevated(background: true, child: child),
-      );
-    }
-    if (A11y.reduceMotionOf(context)) return FadeSheetRoute<T>(settings: this, builder: (_) => Elevated(background: true, child: child));
-    return CupertinoSheetRoute<T>(settings: this, scrollableBuilder: (_, _) => Elevated(background: true, child: child));
-  }
-}
+/// The full-height sheets (Store, Wheel, Account): the iOS stacked sheet on a phone, a centred panel on
+/// a wide window; they close with a drag down at the top of their content (`SheetPage`).
+Page<T> _sheet<T>(Widget child, GoRouterState s) => SheetPage<T>(key: s.pageKey, name: screenNameFor(s.fullPath), child: child);

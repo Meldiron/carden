@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/analytics.dart';
@@ -16,7 +17,9 @@ import 'friend_gifts.dart';
 
 /// Social > Inbox (owner, 2026-10-16): messages from Carden to this player, newest first. A row
 /// shows the subject, when it came, the start of the text and a reward still waiting; an unopened
-/// message has a dot (and the Social tab too). A row swipes away to delete it.
+/// message has a dot (and the Social tab too). A row swipes left to delete it, after asking (VoiceOver:
+/// the row's "Delete message" action); the message sheet itself has no delete or close buttons
+/// (owner, 2026-10-18).
 class InboxList extends ConsumerWidget {
   const InboxList({super.key});
 
@@ -58,7 +61,13 @@ class InboxList extends ConsumerWidget {
                 ),
                 confirmDismiss: (_) => confirmDeleteMessage(context, item),
                 onDismissed: (_) => ref.read(profileProvider.notifier).deleteMessage(item.message.id),
-                child: _MessageRow(item: item),
+                child: _MessageRow(
+                  item: item,
+                  onDelete: () async {
+                    if (!await confirmDeleteMessage(context, item)) return;
+                    ref.read(profileProvider.notifier).deleteMessage(item.message.id);
+                  },
+                ),
               ),
             ],
           ],
@@ -89,8 +98,11 @@ Future<bool> confirmDeleteMessage(BuildContext context, InboxItem item) => showA
 String _when(BuildContext context, DateTime local) => formatMessageDate(local, TimeOfDay.fromDateTime(local).format(context));
 
 class _MessageRow extends StatelessWidget {
-  const _MessageRow({required this.item});
+  const _MessageRow({required this.item, required this.onDelete});
   final InboxItem item;
+
+  /// VoiceOver's "Delete message" (asks first), what the swipe does.
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +112,7 @@ class _MessageRow extends StatelessWidget {
     return Semantics(
       button: true,
       label: [if (unseen) 'New', m.subject, _when(context, m.sentAt), if (item.claimable) 'Gift to claim'].join(', '),
+      customSemanticsActions: {const CustomSemanticsAction(label: 'Delete message'): onDelete},
       excludeSemantics: true,
       child: Pressable(
         key: ValueKey('message-row-${m.id}'),
@@ -226,42 +239,11 @@ class _GiftCard extends StatelessWidget {
   }
 }
 
-/// A round button in the message sheet's header, the iOS 26 sheet's close button: a grey disc
-/// with a mark, 30 pt, 44 pt to tap.
-class _HeaderButton extends StatelessWidget {
-  const _HeaderButton({super.key, required this.icon, required this.label, required this.onTap, this.color});
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Semantics(
-      button: true,
-      label: label,
-      excludeSemantics: true,
-      child: Pressable(
-        onTap: onTap,
-        scale: 0.9,
-        child: TapTarget(
-          child: Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(color: c.track, shape: BoxShape.circle, border: c.highContrast ? Border.all(color: c.controlStroke) : null),
-            child: Icon(icon, size: 15, color: color ?? c.textSecondary),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// A message on its own: subject, when it came, the whole text, its gift and one main action:
-/// Claim while the gift waits, else the message's button (a place in the app). The header's round
-/// buttons delete the message (after asking) and close the sheet, which also drags away. Opening
-/// it marks it seen.
+/// Claim while the gift waits, else the message's button (a place in the app), pinned under the text
+/// while a long message scrolls. No buttons in the header (owner, 2026-10-18): the sheet closes with a
+/// drag down or a tap above it, and a message is deleted by swiping its row in the list. Opening it
+/// marks it seen.
 Future<void> showMessageSheet(BuildContext context, String id) => showAppSheet(context, scrollable: true, builder: (_) => _MessageSheet(id: id));
 
 class _MessageSheet extends ConsumerStatefulWidget {
@@ -311,13 +293,6 @@ class _MessageSheetState extends ConsumerState<_MessageSheet> {
         Currency.magics => 'Magic',
       };
 
-  Future<void> _delete(InboxItem item) async {
-    if (!await confirmDeleteMessage(context, item) || !mounted) return;
-    ref.read(profileProvider.notifier).deleteMessage(item.message.id);
-    Navigator.of(context).pop();
-    showToast(context, 'Message deleted', icon: AppIcons.trash);
-  }
-
   void _openLink(AppLink link) {
     final deepLinks = ref.read(deepLinksProvider);
     Navigator.of(context).pop();
@@ -331,7 +306,9 @@ class _MessageSheetState extends ConsumerState<_MessageSheet> {
     final item = ref.watch(inboxProvider).where((i) => i.message.id == widget.id).firstOrNull;
     // Deleted or expired meanwhile: nothing left to show.
     if (item == null) {
-      return const Padding(padding: EdgeInsets.all(30), child: EmptyState(icon: AppIcons.mail, title: 'Message not available', message: 'It may have expired or been deleted.'));
+      return const SheetScrollBody(
+        child: Padding(padding: EdgeInsets.all(30), child: EmptyState(icon: AppIcons.mail, title: 'Message not available', message: 'It may have expired or been deleted.')),
+      );
     }
     final m = item.message;
     final link = m.ctaLink == null ? null : AppLink.parse(Uri.parse(m.ctaLink!));
@@ -342,50 +319,45 @@ class _MessageSheetState extends ConsumerState<_MessageSheet> {
         : reward.length == 1
             ? BigButton.cost(key: const ValueKey('message-claim'), label: 'Claim', currency: reward.first.$1, amount: reward.first.$2, onTap: () => _claim(m))
             : BigButton(key: const ValueKey('message-claim'), label: 'Claim gift', icon: AppIcons.gift, onTap: () => _claim(m));
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 16, 20),
-      child: Column(
-        key: ValueKey('message-sheet-${m.id}'),
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: SheetHeader(title: m.subject, subtitle: _when(context, m.sentAt))),
-              const SizedBox(width: 4),
-              _HeaderButton(key: const ValueKey('message-delete'), icon: AppIcons.trash, label: 'Delete message', color: c.danger, onTap: () => _delete(item)),
-              _HeaderButton(key: const ValueKey('message-close'), icon: AppIcons.xmark, label: 'Close', onTap: () => Navigator.of(context).pop()),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 14),
-                Text(m.body, style: TextStyle(fontSize: TypeSize.callout, height: 1.45, color: c.textPrimary)),
-                if (m.expiresAt != null) ...[
-                  const SizedBox(height: 10),
-                  Text('In your inbox until ${_when(context, m.expiresAt!)}', style: TextStyle(fontSize: TypeSize.footnote, color: c.textTertiary)),
+    return SheetScrollBody(
+      key: ValueKey('message-sheet-${m.id}'),
+      // One main action: Claim while the gift waits (the message's button under it, tinted), then the
+      // message's button. They stay in view under a long message.
+      footer: claim == null && link == null
+          ? null
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ?claim,
+                  if (link != null) ...[
+                    if (claim != null) const SizedBox(height: 10),
+                    BigButton(key: const ValueKey('message-cta'), label: m.ctaLabel ?? 'Open', kind: claim == null ? ButtonKind.primary : ButtonKind.secondary, onTap: () => _openLink(link)),
+                  ],
                 ],
-                if (m.hasReward) ...[
-                  const SizedBox(height: 18),
-                  _GiftCard(item: item),
-                ],
-                if (claim != null || link != null) const SizedBox(height: 20),
-                // One main action: Claim while the gift waits (the message's button under it, tinted),
-                // then the message's button.
-                ?claim,
-                if (link != null) ...[
-                  if (claim != null) const SizedBox(height: 10),
-                  BigButton(key: const ValueKey('message-cta'), label: m.ctaLabel ?? 'Open', kind: claim == null ? ButtonKind.primary : ButtonKind.secondary, onTap: () => _openLink(link)),
-                ],
-              ],
+              ),
             ),
-          ),
-        ],
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 4, 20, claim == null && link == null ? 20 : 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SheetHeader(title: m.subject, subtitle: _when(context, m.sentAt)),
+            const SizedBox(height: 14),
+            Text(m.body, style: TextStyle(fontSize: TypeSize.callout, height: 1.45, color: c.textPrimary)),
+            if (m.expiresAt != null) ...[
+              const SizedBox(height: 10),
+              Text('In your inbox until ${_when(context, m.expiresAt!)}', style: TextStyle(fontSize: TypeSize.footnote, color: c.textTertiary)),
+            ],
+            if (m.hasReward) ...[
+              const SizedBox(height: 18),
+              _GiftCard(item: item),
+            ],
+          ],
+        ),
       ),
     );
   }

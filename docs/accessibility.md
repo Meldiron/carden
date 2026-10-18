@@ -36,8 +36,10 @@ Dark Interface is supported as before (Settings > Theme).
 Reduce motion changes, by place:
 - Shared widgets: buttons dim without shrinking (`Pressable`), loading skeletons stand still, the segmented
   control's thumb jumps without spring, stretch or lift, alerts, action sheets and toasts fade without zoom or
-  slide, wide-window panels fade, the Store, Wheel and Account sheets fade in (`FadeSheetRoute`) instead of the
-  sheet sliding up while the page behind shrinks, the tab pill and glass bars snap, shelves jump.
+  slide, wide-window panels fade, the Store, Wheel and Account sheets fade in (a full-height `GlassSheetRoute`)
+  instead of the sheet sliding up while the page behind shrinks, content sheets fade in and out instead of sliding
+  (a drag still moves them with the finger; one let go before the close point jumps back), the tab pill and glass
+  bars snap, shelves jump.
 - Board: cards and Peek jump to their places (the lock flash still marks a change), the picture before the deal
   fades into the dealt cards, no lock pop, a steady hint
   outline instead of the pulse, no lift scale, zoom buttons, map and Locate move the view at once (`BoardZoom.reduceMotion`).

@@ -14,8 +14,8 @@ What is used where:
 | --- | --- |
 | Confirmations, destructive prompts, text-entry prompts (rename, friend code) | `showAppAlert` in `lib/widgets/ui.dart`: the iOS 26 alert drawn in Flutter. A glass card (28pt radius; in dark mode the elevated tint, one level above sheets, with a 50% dim) with a centred title and message and capsule actions (48pt): Cancel neutral, the action tinted cobalt, or red when destructive (never the default look). Side by side when both labels fit, otherwise stacked with the action on top. Every label names its action (never "OK"). Text fields inside use `AlertTextField`. |
 | Menus of actions (a player's ..., Add a photo, a photo's ...) | `showAppActionSheet` in `lib/widgets/ui.dart`: the alert's glass card at the bottom of the screen, an optional title, the choices as capsules (cobalt, red when destructive) and Cancel last. |
-| Content-sized sheets (pause menu, daily gift, piggy bank, tier unlock, pack access, avatar picker, credits) | `showAppSheet` in `lib/widgets/ui.dart`: a modal bottom sheet rendered on `GlassSheet` (28pt top radius, grabber, 32% dim, blur + saturation + tint, home-indicator inset). This is what iOS 26 partial-height sheets look like. Every sheet starts with `SheetHeader` (20pt title, 15pt subtitle): left-aligned for lists and choices, centred for sheets that lead with a picture or an icon. |
-| Full-height modals (Store, Wheel, Account) | `CupertinoSheetRoute` via `_SheetPage` in `lib/router.dart`: the real stacked-sheet presentation. The sheet stops below the status bar, the page behind scales back, drag down to dismiss. |
+| Content-sized sheets (pause menu, daily gift, piggy bank, tier unlock, pack access, avatar picker, credits, statistics, Unlock early, an Inbox message) | `showAppSheet` in `lib/widgets/ui.dart`: a `GlassSheetRoute` (`lib/widgets/sheets.dart`) rendered on `GlassSheet` (28pt top radius, grabber, 32% dim, blur + saturation + tint, home-indicator inset). This is what iOS 26 partial-height sheets look like. Every sheet starts with `SheetHeader` (20pt title, 15pt subtitle): left-aligned for lists and choices, centred for sheets that lead with a picture or an icon. Drag, height and footer rules under "Sheets" below. |
+| Full-height modals (Store, Wheel, Account) | `SheetPage` in `lib/widgets/sheets.dart` (the router's `_sheet`): `CupertinoSheetRoute`, the real stacked-sheet presentation. The sheet stops below the status bar, the page behind scales back, drag down to dismiss; the route's own scroll controller reaches the screen's list through `PrimaryScrollController`, so a drag down at the top of the list closes it. With Reduce motion a full-height `GlassSheetRoute` that fades. |
 | Bottom tab bar | `GlassTabBar`: floating capsule inset 16pt from the edges, hovering above the home indicator, blurred content underneath, soft tinted pill behind the selected tab (iOS 26 shape). Icons and labels unchanged. `Scaffold.extendBody: true` so pages scroll beneath it. |
 | Tab headers (Home, Library, Events, Profile) | `GlassSliverHeader` / `HeaderBar`: pinned, transparent while the list is at the top, glass with a hairline once content scrolls under. Same rule as `CupertinoNavigationBar.automaticBackgroundVisibility`. |
 | App bars on pushed pages (Settings, Store, Account, My Puzzles, Difficulty, Wheel) | `GlassAppBar` with `extendBodyBehindAppBar: true`. Transparent at rest, glass when scrolled under. |
@@ -72,11 +72,46 @@ simulator, because it is all drawn by Flutter.
 - No emoji, no gradients; the only colour in chrome is the cobalt accent on
   the selected tab and default buttons.
 - Alerts keep platform order: Cancel left, confirm right; stacked, the action on top and Cancel last.
+- `SoftCard` clips its content to its radius and draws its outline on top, so rows with their own
+  fill (the swipe rows of Inbox, Friends and Quests) keep the card's rounded corners (owner, 2026-10-18).
 - Pages that scroll under a bar pad their first item with
   `MediaQuery.paddingOf(context).top`. Every scrollable page ends with
   `GlassTabBar.scrollEndPadding(context)`: the floating tab bar's height plus
   a margin under the tab bar, otherwise the home-indicator inset plus a
   margin, so the last row is never hidden.
+
+## Sheets
+
+One rule for every sheet on a phone (owner, 2026-10-18, after TestFlight feedback that sheets reached
+the status bar, the Unlock early button scrolled away, and a swipe down scrolled the content of
+Statistics, the credits and the Store instead of closing them). The code is `lib/widgets/sheets.dart`;
+`test/sheet_drag_test.dart` checks it.
+
+- **Height**: a sheet never rises above `SheetMetrics.topGap`: 8% of the screen height
+  (`CupertinoSheetRoute`'s own stop, iOS's large detent), never inside the status bar. The strip of page
+  above stays in view, dimmed, and a tap on it closes the sheet (the stacked full-height sheets too).
+- **Drag to close**: a drag down on the grabber, a header or a footer moves the sheet at once. In the
+  scrolling part it moves the sheet once the content is at its top; a drag that starts lower scrolls
+  the content up first and the same pull then carries the sheet (`SheetScrollController`: the content
+  never pulls past its top, so no empty band opens above a title). Let go after 40% of the sheet's
+  height (240 pt at most) or while moving down at 700 pt/s or more and it closes; otherwise it settles
+  back. The full-height sheets use Flutter's own `CupertinoSheetRoute` drag (its `scrollableBuilder`
+  controller), with its own thresholds.
+- **One scroll per sheet**: `GlassSheet` scrolls its content in a `SheetScrollBody` when it is taller
+  than the sheet may be, so sheet content is a plain `Column`, not a `ListView` in a fixed-height box.
+  A scroll view inside the content (the avatar grid) gets the drag-aware controller through
+  `PrimaryScrollController` and closes the sheet from its top too.
+- **Pinned footer**: a sheet whose buttons must stay in view under a long list passes
+  `scrollable: true` to `showAppSheet` and returns `SheetScrollBody(child: ..., footer: ...)`: the
+  footer sits under the scrolling part (Unlock early's button, an Inbox message's Claim and button).
+- **No close or delete buttons in a sheet's header**: the drag, the dim and VoiceOver's escape
+  (`Semantics.onDismiss`, the dim reads "Close") close it; destructive actions live on the row
+  (swipe left, asks first, a VoiceOver custom action).
+- Sheets that must be answered (`dismissible: false`: merge, two boards, joining a game) ignore the
+  drag and the dim.
+- Reduce motion: content sheets and the full-height ones fade in and out; a drag still moves the sheet
+  with the finger (the player's own drag), and a sheet let go before the close point jumps back.
+- Wide windows: sheets are centred panels (`PanelRoute`); they scroll but do not drag.
 
 ## Haptics
 

@@ -7,6 +7,7 @@ import '../core/a11y.dart';
 import '../core/theme/tokens.dart';
 import 'adaptive.dart';
 import 'icons.dart';
+import 'sheets.dart';
 
 /// iOS bar material: the content behind is blurred and slightly saturated,
 /// then tinted with the surface colour. Used for the tab bar, headers and
@@ -460,12 +461,13 @@ class _TabCell extends StatelessWidget {
 /// Surface for content-sized modal sheets: rounded top, glass, grabber and
 /// home-indicator inset, matching iOS 26 partial-height sheets.
 ///
-/// The sheet hugs its content. When the content is taller than the screen
-/// allows (small phones, large text, an extra block such as the streak
-/// restore), it scrolls under the grabber instead of overflowing, so the
-/// last button can always be reached.
+/// The sheet hugs its content up to [SheetMetrics.maxHeight] (the route caps it). Taller content
+/// (small phones, large text, long lists) scrolls in a [SheetScrollBody] under the grabber, and a
+/// drag down at its top closes the sheet (`lib/widgets/sheets.dart`). With [scrollable] the content
+/// lays out its own body: a [SheetScrollBody] with a [SheetScrollBody.footer] that stays put while
+/// the rest scrolls (the buttons under a long list).
 class GlassSheet extends StatelessWidget {
-  const GlassSheet({super.key, required this.child, this.grabber = true, this.bottomInset = 0, this.panel = false});
+  const GlassSheet({super.key, required this.child, this.grabber = true, this.bottomInset = 0, this.panel = false, this.scrollable = false});
   final Widget child;
   final bool grabber;
 
@@ -475,6 +477,9 @@ class GlassSheet extends StatelessWidget {
   /// A centred panel (the sheet on a wide window, see `showAppSheet`): rounded on every corner,
   /// no grabber (nothing to drag) and no home-indicator inset.
   final bool panel;
+
+  /// [child] brings its own [SheetScrollBody] (to pin a footer) instead of being wrapped in one.
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
@@ -493,14 +498,13 @@ class GlassSheet extends StatelessWidget {
           children: [
             if (grabber && !panel)
               Padding(
+                key: const ValueKey('sheet-grabber'),
                 padding: const EdgeInsets.only(top: 8, bottom: 6),
                 child: Container(width: 36, height: 5, decoration: BoxDecoration(color: c.textTertiary.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(999))),
               )
             else
               SizedBox(height: panel ? 20 : 14),
-            // Scrolls only when the content does not fit; otherwise a drag
-            // still moves the whole sheet (drag to dismiss).
-            Flexible(child: _SheetScroll(child: Elevated(child: child))),
+            Flexible(child: Elevated(child: scrollable ? child : SheetScrollBody(child: child))),
           ],
         ),
       ),
@@ -508,23 +512,36 @@ class GlassSheet extends StatelessWidget {
   }
 }
 
-/// The scrolling body of a [GlassSheet]. Content that fits does not scroll;
-/// content that does not fades out at the edge where more is waiting, so a
-/// cut-off button never looks like the end of the sheet.
-class _SheetScroll extends StatefulWidget {
-  const _SheetScroll({required this.child});
+/// The scrolling part of a sheet, and an optional [footer] pinned under it (owner, 2026-10-18: the
+/// button under a long list stays in view). Content that fits does not scroll; content that does not
+/// fades out at the edge where more is waiting, so a cut-off row never looks like the end of the
+/// sheet. A drag down at the top moves the sheet ([SheetScrollController]); scroll views inside
+/// [child] get the same behaviour through their [PrimaryScrollController].
+class SheetScrollBody extends StatefulWidget {
+  const SheetScrollBody({super.key, required this.child, this.footer});
   final Widget child;
 
+  /// Stays under the scrolling part (pad it as the content is padded).
+  final Widget? footer;
+
+  /// The key of the sheet's own scroll view (tests drag it).
+  static const scrollKey = ValueKey('sheet-scroll');
+
   @override
-  State<_SheetScroll> createState() => _SheetScrollState();
+  State<SheetScrollBody> createState() => _SheetScrollBodyState();
 }
 
-class _SheetScrollState extends State<_SheetScroll> {
-  final _controller = ScrollController();
+class _SheetScrollBodyState extends State<SheetScrollBody> {
+  late final _controller = SheetScrollController(drag: _drag);
+
+  /// For scroll views inside the content (the avatar grid).
+  late final _inner = SheetScrollController(drag: _drag);
   bool _moreAbove = false;
   bool _moreBelow = false;
 
   static const _fade = 28.0;
+
+  SheetDrag? _drag() => mounted ? SheetDragScope.maybeOf(context) : null;
 
   @override
   void initState() {
@@ -535,6 +552,7 @@ class _SheetScrollState extends State<_SheetScroll> {
   @override
   void dispose() {
     _controller.dispose();
+    _inner.dispose();
     super.dispose();
   }
 
@@ -554,8 +572,13 @@ class _SheetScrollState extends State<_SheetScroll> {
 
   @override
   Widget build(BuildContext context) {
-    final scroll = SingleChildScrollView(controller: _controller, physics: const ClampingScrollPhysics(), child: widget.child);
-    return NotificationListener<ScrollMetricsNotification>(
+    final scroll = SingleChildScrollView(
+      key: SheetScrollBody.scrollKey,
+      controller: _controller,
+      physics: const SheetScrollPhysics(),
+      child: PrimaryScrollController(controller: _inner, automaticallyInheritForPlatforms: SheetMetrics.everywhere, child: widget.child),
+    );
+    final body = NotificationListener<ScrollMetricsNotification>(
       onNotification: (_) {
         _update();
         return false;
@@ -586,6 +609,13 @@ class _SheetScrollState extends State<_SheetScroll> {
           child: scroll,
         ),
       ),
+    );
+    final footer = widget.footer;
+    if (footer == null) return body;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [Flexible(child: body), KeyedSubtree(key: const ValueKey('sheet-footer'), child: footer)],
     );
   }
 }
