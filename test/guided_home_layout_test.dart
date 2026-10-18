@@ -131,7 +131,7 @@ void main() {
         ),
       ));
       await tester.pumpAndSettle();
-      final title = find.text('Achievements open after 25 more pictures').evaluate().length;
+      final title = find.text('Opens after 25 more pictures').evaluate().length;
       final c = ProviderScope.containerOf(tester.element(find.byType(LockedSectionCard)));
       // Unlock anyway asks first, saying what waiting gives.
       await tester.tap(find.text('Unlock anyway'));

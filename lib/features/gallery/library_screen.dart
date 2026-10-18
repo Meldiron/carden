@@ -371,7 +371,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               child: OneTimeTip(
                 id: 'library',
                 icon: AppIcons.library,
-                text: 'Start with the free packs. The others open with coins or tickets, and every picture earns coins.',
+                text: OneTimeTip.libraryText,
                 padding: EdgeInsets.fromLTRB(20, 10, 20, 0),
               ),
             ),

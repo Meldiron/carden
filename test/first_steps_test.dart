@@ -145,6 +145,9 @@ void main() {
     expect(Reveal.daily.opensTitle(4), 'Daily puzzle opens after 1 more picture');
     expect(Reveal.liveEvents.more(30), '5 more pictures');
     expect(Reveal.library.opensTitle(1), 'Library opens after 2 more pictures');
+    // A locked card sits under its section's header: its title says only when (one line).
+    expect(Reveal.achievements.opensAfter(1), 'Opens after 24 more pictures');
+    expect(Reveal.liveEvents.opensAfter(34), 'Opens after 1 more picture');
     expect([for (final r in Reveal.values) if (r.listed) r.name], ['library', 'daily', 'streak', 'wheel', 'quests', 'achievements', 'piggy', 'liveEvents', 'social']);
   });
 

@@ -19,10 +19,15 @@ guided again.
 
 ## The path
 
-1. **Welcome pages, then straight into a first board.** "Start playing" goes to Home and pushes
-   the first board over it: Pink Sands Beach (`firstBoardPuzzle`, free starter pack Tropical
+1. **Welcome pages, then straight into a first board.** "Start playing" (or Skip) goes to Home and
+   pushes the first board over it: Pink Sands Beach (`firstBoardPuzzle`, free starter pack Tropical
    Beaches) on nine cards (Cards 3x3, `?first=1`). The picture loads while the welcome pages are
-   open (`firstBoardPrefetchProvider`). It was chosen by scoring every picture of the six starter
+   open (`firstBoardPrefetchProvider`). The tap ends the welcome for good (`onboarded` is saved before
+   the wait for a slow catalogue, with a spinner on the button): a player who closes the app before
+   the board is dealt starts on Home next time, with the first picture on top (owner, TestFlight
+   2026-10-18). The welcome pages come back only after Delete account. The buttons under the pages
+   follow the swipe to the last page: "Continue" cross-fades into "Start playing" and Skip fades out
+   with it, its space kept (a short cross-fade with Reduce motion). It was chosen by scoring every picture of the six starter
    packs for how clearly its nine cards differ in colour and detail; a picture of similar cards
    (rocks, bamboo, night sky) is hard on a first board.
 2. **One hint per step on the first board** (until `tutorialSeen`), where the tools will be (the
@@ -30,7 +35,7 @@ guided again.
    the cards (docs/giant-boards.md, "The picture before the deal"): "Tap a card to pick it up",
    then the picked card's place is outlined (`GameController.guide`, free, not a Hint) with "Now
    tap the outlined spot", then "It locked in place..." (or "They joined..."). No title or step
-   count, only the line (owner). The next move ends the hints, the tools fade in, and a toast says
+   count, only the line (owner), two lines at most (`BoardCoach.lineFor`). The next move ends the hints, the tools fade in, and a toast says
    "Fewer moves earn more stars. Take your time." The close button ends them at once. They never
    come back.
 3. **The finish**: its way out is **Home** (the board was opened over it).
@@ -77,7 +82,9 @@ guided again.
 8. **Locked places say how many pictures are left**: locked tabs are drawn faded with a small lock
    and keep their place in the bar; a tap shows "Quests open after 19 more pictures" with **Unlock
    anyway** or Not now. A tab that opened by playing carries a dot until it is visited. Profile shows
-   achievements, and Quests shows live events, as one locked card with Unlock anyway.
+   achievements, and Quests shows live events, as one locked card with Unlock anyway: under the
+   section's own header, a one-line title ("Opens after 24 more pictures", `Reveal.opensAfter`) and
+   a one-line description (`Reveal.blurb`).
 9. **Every Unlock anyway asks first**: "Are you sure?" says it opens by itself after N more pictures
    and that waiting keeps the start calm, one new thing at a time, with quests and achievements
    counting from the moment they open (Keep waiting / Unlock ...). On Home, with more than one thing
@@ -86,6 +93,12 @@ guided again.
 10. **Tips at the moment they matter**, each once: the Library's "Start with the free packs...", the
     board picker's "Pick a shape and a size...", and "Stuck? Hint shows where one card belongs" after
     six moves in a row without a lock or join.
+
+    **Short** (owner, TestFlight 2026-10-18): every hint and tip card fits two lines on a 390 pt
+    iPhone at the default text size; a locked card, and each entry of Home's "More opens as you
+    play", has a one-line title and a one-line description. `test/hint_lines_test.dart` lays each one
+    out at its real width (in San Francisco on a Mac, calibrated against the owner's screenshots) and
+    checks Large and Largest text for overflow. New copy there must pass it.
 11. The board picker opens one step up from nine cards (**Relaxed**, 4x4) until the player picks a board.
 
 Settings > Gameplay > **Guided start** (shown to guided players) turns it off (everything open)
@@ -97,8 +110,13 @@ or back on (what the player reached stays open).
   achievements from their opening, Unlock anyway, tab dots).
 - `test/guided_home_layout_test.dart`: the guided Home at SE, Pro and website sizes, both themes,
   text 100% and 200%, before and after the first picture, without layout errors.
+- `test/hint_lines_test.dart`: hints two lines, locked cards one line each, at 390 pt.
+- `test/welcome_once_test.dart`: Skip, close the app while the first board loads, open it again:
+  Home; the buttons under the pages follow the swipe.
 - `integration_test/first_steps_test.dart`: the whole path on the simulator with a QA guest
   (screenshots `fs_*`). Every other suite starts past the first steps (`FirstSteps.skipFor`).
+- `integration_test/welcome_relaunch_test.dart`: Skip, then a real relaunch on the simulator's own
+  preferences (two runs, the second without uninstalling).
 
 Research behind it: Unity's FTUE tips (core loop first, unlock gradually), Supersonic on teasing
 features and holding offers back in the first session, and the case against forced click-through

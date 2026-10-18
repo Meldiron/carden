@@ -160,18 +160,18 @@ final _epoch = DateTime.fromMillisecondsSinceEpoch(0);
 /// achievements 25, piggy bank 30, live events 35, Social 50). Before the Library opens, the only
 /// picture to play is the one Home suggests.
 enum Reveal {
-  library(solves: 3, label: 'Library', tab: 1, blurb: 'Every pack to play, with free ones to start, and your packs on Home.'),
+  library(solves: 3, label: 'Library', tab: 1, blurb: 'Every pack to play, with free ones to start.'),
   quickPlay(solves: 3, label: 'Quick play'),
-  daily(solves: 5, label: 'Daily puzzle', blurb: 'A new picture every day, the same for everyone, with a bonus.'),
+  daily(solves: 5, label: 'Daily puzzle', blurb: 'A new picture every day, with a bonus.'),
   saveProgress(solves: 5, label: 'Save your progress'),
-  streak(solves: 10, label: 'Daily gift', blurb: 'A gift every day you play, bigger with your streak.'),
+  streak(solves: 10, label: 'Daily gift', blurb: 'A gift each day, bigger with your streak.'),
   wheel(solves: 15, label: 'Lucky Wheel', blurb: 'Spin for coins, tickets and hints.'),
-  quests(solves: 20, label: 'Quests', plural: true, tab: 2, blurb: 'Daily and weekly goals that pay coins and tickets.'),
+  quests(solves: 20, label: 'Quests', plural: true, tab: 2, blurb: 'Daily and weekly tasks for coins and tickets.'),
   promos(solves: 20, label: 'Store offers', plural: true),
-  achievements(solves: 25, label: 'Achievements', plural: true, blurb: 'Goals across all your play, each with a reward.'),
+  achievements(solves: 25, label: 'Achievements', plural: true, blurb: 'Lifetime milestones, each with a reward.'),
   piggy(solves: 30, label: 'Piggy bank', blurb: 'Saves a few coins from every picture.'),
   liveEvents(solves: 35, label: 'Live events', plural: true, blurb: 'World-day packs, each open for a week.'),
-  social(solves: 50, label: 'Social', tab: 3, blurb: 'A weekly league, friends and messages from Carden.');
+  social(solves: 50, label: 'Social', tab: 3, blurb: 'A weekly league, friends and messages.');
 
   const Reveal({required this.solves, required this.label, this.plural = false, this.blurb = '', this.tab});
 
@@ -180,7 +180,9 @@ enum Reveal {
   final String label;
   final bool plural;
 
-  /// What it is, in one line (the Home list of what is to come, the locked tab's alert).
+  /// What it is, in one line (the Home list of what is to come, a locked card, the locked tab's
+  /// alert): one line at the default text size on a 390 pt iPhone (owner, TestFlight 2026-10-18;
+  /// test/hint_lines_test.dart).
   final String blurb;
 
   /// Its tab in the tab bar (Library 1, Quests 2, Social 3), when it is one.
@@ -195,8 +197,12 @@ enum Reveal {
   /// "2 more pictures", "1 more picture": the chips and alerts (owner, 2026-10-16).
   String more(int counted) => left(counted) == 1 ? '1 more picture' : '${left(counted)} more pictures';
 
-  /// "Quests open after 19 more pictures", "Social opens after 49 more pictures".
+  /// "Quests open after 19 more pictures", "Social opens after 49 more pictures": a locked tab's alert.
   String opensTitle(int counted) => '$label ${plural ? 'open' : 'opens'} after ${more(counted)}';
+
+  /// "Opens after 24 more pictures": a locked card's title, under the section's own header
+  /// (Achievements, Live events), so it stays one line.
+  String opensAfter(int counted) => 'Opens after ${more(counted)}';
 }
 
 /// Pictures the player has finished (local progress, so a first solve counts at once).

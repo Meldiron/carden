@@ -209,7 +209,7 @@ void main() {
     expect(find.textContaining('0 of 10'), findsWidgets, reason: 'Solve 10 puzzles this week starts at 0');
     await shot(tester, 'fs_09b_quests_from_now');
     await scrollTo(tester, find.byKey(const ValueKey('locked-liveEvents')));
-    expect(find.text('Live events open after 34 more pictures'), findsOneWidget);
+    expect(find.text('Opens after 34 more pictures'), findsOneWidget, reason: 'one line under the Live events header');
 
     // 11. Two more pictures, each from Home's suggestion, the board picker's tip the first time.
     Future<void> playSuggested(String name) async {

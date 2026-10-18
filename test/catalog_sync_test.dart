@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:convert';
 
 import 'package:carden/data/catalog_cache.dart';
+import 'package:carden/data/catalog_cache_io.dart';
 import 'package:carden/data/local_store.dart';
 import 'package:carden/data/repositories.dart';
 import 'package:carden/state/catalog_sync.dart';
@@ -91,9 +93,15 @@ void main() {
   CatalogSync sync() => CatalogSync(store, server, clock: () => now);
   Future<Set<String>> ids(String table) async => {for (final r in (await sync().sync())[table]!) '${r[r'$id']}'};
 
+  late Directory folder;
+
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     store = await LocalStore.open();
+    // The iPhone's cache folder (path_provider needs the platform).
+    folder = await Directory.systemTemp.createTemp('catalog_cache_');
+    FileCatalogCache.directory = () async => folder;
+    addTearDown(() => folder.delete(recursive: true));
     server = FakeCatalog();
     now = DateTime(2026, 10, 13, 14);
     for (final pack in ['pack-a', 'pack-b']) {
@@ -122,8 +130,10 @@ void main() {
     expect(await ids('puzzles'), hasLength(48));
     expect(server.fullReads, 3);
 
+    // A new device: no settings, no catalogue file.
     SharedPreferences.setMockInitialValues({});
     store = await LocalStore.open();
+    File('${folder.path}/${FileCatalogCache.fileName}').deleteSync();
     server.takeSnapshot();
     server.snapshotFails = true;
     expect(await ids('puzzles'), hasLength(48));
@@ -196,11 +206,37 @@ void main() {
   });
 
   group('where the copy is kept', () {
-    test('the iPhone keeps it in SharedPreferences under `catalog`, as before', () async {
+    test('the iPhone keeps it in a file, never in SharedPreferences (over 4 MB, iOS saved no preference)', () async {
       server.takeSnapshot();
       await sync().sync();
-      expect(CatalogCache.of(store), isA<PrefsCatalogCache>());
-      expect(store.getJson('catalog')?['tables'], isNotNull);
+      expect(CatalogCache.of(store), isA<FileCatalogCache>());
+      expect(store.getText('catalog'), isNull, reason: 'NSUserDefaults must stay small');
+      final file = File('${folder.path}/${FileCatalogCache.fileName}');
+      expect(jsonDecode(file.readAsStringSync())['tables'], isNotNull);
+      // The next launch reads the file: only the delta comes from the server.
+      server.reads = 0;
+      expect((await sync().sync())['puzzles'], hasLength(48));
+      expect(server.snapshotDownloads, 1);
+      expect(server.reads, lessThan(4));
+    });
+
+    test('a catalogue an earlier build left in SharedPreferences moves to the file and leaves', () async {
+      server.takeSnapshot();
+      await CatalogSync(store, server, clock: () => now, cache: PrefsCatalogCache(store)).sync();
+      expect(store.getText('catalog'), isNotNull, reason: 'where builds up to 127 kept it');
+      server.reads = 0;
+      final tables = await sync().sync();
+      expect(tables['puzzles'], hasLength(48));
+      expect(server.snapshotDownloads, 1, reason: 'the copy was used, not downloaded again');
+      expect(store.getText('catalog'), isNull, reason: 'the preferences get their room back');
+      expect(File('${folder.path}/${FileCatalogCache.fileName}').existsSync(), isTrue);
+    });
+
+    test('a file that cannot be written leaves SharedPreferences alone and the launch goes on', () async {
+      FileCatalogCache.directory = () async => throw Exception('no folder');
+      server.takeSnapshot();
+      expect(await sync().sync(), isNotEmpty);
+      expect(store.getText('catalog'), isNull);
     });
 
     test('a cache with room (IndexedDB on the web): the second launch reads only the delta', () async {

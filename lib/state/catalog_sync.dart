@@ -20,8 +20,8 @@ typedef CatalogTables = Map<String, List<Map<String, dynamic>>>;
 /// moved has its puzzles read again whole. Packs and events are never deleted by the content tool;
 /// rows deleted by hand disappear with the next base.
 ///
-/// The copy lives in [CatalogCache]: SharedPreferences on the iPhone, IndexedDB on the web (where
-/// localStorage is too small for it).
+/// The copy lives in [CatalogCache]: a file on the iPhone, IndexedDB on the web. Never
+/// SharedPreferences: it is too large for iOS's preferences and the web's localStorage.
 class CatalogSync {
   CatalogSync(this._store, this._source, {DateTime Function()? clock, CatalogCache? cache})
       : _clock = clock ?? DateTime.now,

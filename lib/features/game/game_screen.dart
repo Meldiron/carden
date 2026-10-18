@@ -133,7 +133,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
   List<Goal> _questsReady = const [];
   List<Unlock> _unlocked = const [];
   /// The first board's hints, one per step (null when the player has had them).
-  _CoachStep? _coach;
+  CoachStep? _coach;
   Timer? _coachTimer;
 
   /// Moves since the last lock or join: six in a row bring the one-time "Stuck?" tip.
@@ -211,7 +211,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     }
     _args = _coopGameId != null ? _coopArgs(_base) : _argsFor(_spec, resume: true, session: _base);
     // No first-board hints on a shared board: the player came to play with someone.
-    _coach = ref.read(settingsProvider).tutorialSeen || _spec.isGiant || widget.coopId != null ? null : _CoachStep.pick;
+    _coach = ref.read(settingsProvider).tutorialSeen || _spec.isGiant || widget.coopId != null ? null : CoachStep.pick;
     _boardSub = ref.read(syncProvider.notifier).boardUpdates.listen(_onBoardUpdate);
     _zoom.addListener(_onZoomChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _listen());
@@ -774,22 +774,22 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     final s = ref.read(gameControllerProvider(_args!));
     final moved = e == GameEventKind.move || e == GameEventKind.join || e == GameEventKind.lock || e == GameEventKind.doubleLock;
     switch (_coach!) {
-      case _CoachStep.pick || _CoachStep.retry || _CoachStep.place:
+      case CoachStep.pick || CoachStep.retry || CoachStep.place:
         if (e == GameEventKind.pick && s.selected != null) {
           _ctrl.guide(s.board.homeOf(s.selected!));
-          _setCoach(_CoachStep.place);
+          _setCoach(CoachStep.place);
         } else if (moved) {
           _ctrl.guide(null);
           final locked = e == GameEventKind.lock || e == GameEventKind.doubleLock;
-          _setCoach(locked ? _CoachStep.locked : e == GameEventKind.join ? _CoachStep.joined : _CoachStep.retry);
+          _setCoach(locked ? CoachStep.locked : e == GameEventKind.join ? CoachStep.joined : CoachStep.retry);
           if (locked || e == GameEventKind.join) _coachTimer = Timer(const Duration(seconds: 6), () => _finishCoach(toast: true));
         }
-      case _CoachStep.locked || _CoachStep.joined:
+      case CoachStep.locked || CoachStep.joined:
         if (moved) _finishCoach(toast: true);
     }
   }
 
-  void _setCoach(_CoachStep step) {
+  void _setCoach(CoachStep step) {
     _coachTimer?.cancel();
     if (mounted) setState(() => _coach = step);
   }
@@ -1657,7 +1657,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
                         ),
                       ),
                       // The first hint waits for the picture to be dealt.
-                      if (coaching && !state.previewing) _Coach(step: _coach!, onClose: _finishCoach),
+                      if (coaching && !state.previewing) BoardCoach(step: _coach!, onClose: _finishCoach),
                     ],
                   )
                 else
@@ -2218,30 +2218,36 @@ class _PauseDivider extends StatelessWidget {
   Widget build(BuildContext context) => Divider(height: 0.5, thickness: 0.5, indent: 50, color: context.colors.stroke);
 }
 
-/// First game: "How to play" in three short steps, each with its mark, and
-/// one line about stars, in a card at the bottom over the tools (they wait
-/// until it is read anyway). A light dim keeps the board in view above it.
-/// "Got it", or a tap anywhere, closes it for good.
 /// The first board's steps.
-enum _CoachStep { pick, place, retry, locked, joined }
+enum CoachStep { pick, place, retry, locked, joined }
 
 /// One hint per step on the first board, where the tools will be: what to do now, in a line.
-/// It never covers the board and goes away with the first lock or join.
-class _Coach extends StatelessWidget {
-  const _Coach({required this.step, required this.onClose});
-  final _CoachStep step;
+/// It never covers the board and goes away with the first lock or join. Every line fits two lines
+/// on a 390 pt iPhone at the default text size (owner, TestFlight 2026-10-18; test/hint_lines_test.dart).
+class BoardCoach extends StatelessWidget {
+  const BoardCoach({super.key, required this.step, required this.onClose});
+  final CoachStep step;
   final VoidCallback onClose;
+
+  /// What [step] says.
+  static String lineFor(CoachStep step) => switch (step) {
+        CoachStep.pick => 'Tap a card to pick it up.',
+        CoachStep.place => 'Now tap the outlined spot. That is where it belongs.',
+        CoachStep.retry => 'Not its place yet. Tap a card, then tap its outlined spot.',
+        CoachStep.locked => 'It locked in place. Cards that fit side by side move as one.',
+        CoachStep.joined => 'They joined and move together. A card in its true spot locks.',
+      };
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final (icon, text) = switch (step) {
-      _CoachStep.pick => (AppIcons.tapCard, 'Tap a card to pick it up.'),
-      _CoachStep.place => (AppIcons.tapToPlace, 'Now tap the outlined spot. That is where it belongs.'),
-      _CoachStep.retry => (AppIcons.tapCard, 'Not its place yet. Tap a card, then tap its outlined spot.'),
-      _CoachStep.locked => (AppIcons.lock, 'It locked in place. Cards that belong side by side also join and move together.'),
-      _CoachStep.joined => (AppIcons.group, 'They joined and now move together. A card in its right spot locks in place.'),
+    final icon = switch (step) {
+      CoachStep.pick || CoachStep.retry => AppIcons.tapCard,
+      CoachStep.place => AppIcons.tapToPlace,
+      CoachStep.locked => AppIcons.lock,
+      CoachStep.joined => AppIcons.group,
     };
+    final text = lineFor(step);
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
       child: ConstrainedBox(

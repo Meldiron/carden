@@ -123,9 +123,14 @@ class NextStepCard extends ConsumerWidget {
 }
 
 /// The end of the guided Home: what is still to come, blurred and fading behind a card that
-/// says why it waits, lists what opens when, and offers "Unlock anyway".
+/// says why it waits, lists what opens when, and offers "Unlock anyway". Like a locked card, every
+/// title and line in it is one line at the default text size on a 390 pt iPhone (owner, TestFlight
+/// 2026-10-18; test/hint_lines_test.dart).
 class MoreToComeCard extends ConsumerWidget {
   const MoreToComeCard({super.key, required this.preview});
+
+  /// Under its title, "More opens as you play".
+  static const intro = 'Carden starts simple, one thing at a time.';
 
   /// The hidden part of Home (Lucky Wheel and piggy bank, packs, level), drawn blurred.
   final Widget preview;
@@ -195,7 +200,7 @@ class MoreToComeCard extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Carden starts simple, so there is time to settle in. The rest opens a little at a time as you solve pictures.',
+                      MoreToComeCard.intro,
                       style: TextStyle(fontSize: TypeSize.footnote, height: 1.35, color: c.textSecondary),
                     ),
                     const SizedBox(height: 12),
@@ -242,7 +247,9 @@ class MoreToComeCard extends ConsumerWidget {
   }
 }
 
-/// A section that waits for the player (Profile's achievements): when it opens, and "Unlock anyway".
+/// A section that waits for the player (Profile's achievements, Quests' live events), under the
+/// section's own header: when it opens and what it is, one line each at the default text size on a
+/// 390 pt iPhone (owner, TestFlight 2026-10-18; test/hint_lines_test.dart), and "Unlock anyway".
 class LockedSectionCard extends ConsumerWidget {
   const LockedSectionCard({super.key, required this.reveal});
   final Reveal reveal;
@@ -266,7 +273,7 @@ class LockedSectionCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(reveal.opensTitle(counted), style: Theme.of(context).textTheme.titleMedium),
+                    Text(reveal.opensAfter(counted), style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 2),
                     Text(reveal.blurb, style: TextStyle(fontSize: TypeSize.footnote, height: 1.3, color: c.textSecondary)),
                   ],
@@ -447,13 +454,21 @@ class _UnlockPickerState extends State<_UnlockPicker> {
   }
 }
 
-/// A tip said once, where it matters (the Library, the board picker), with a close.
+/// A tip said once, where it matters (the Library, the board picker), with a close. Two lines at
+/// most on a 390 pt iPhone at the default text size (owner, TestFlight 2026-10-18;
+/// test/hint_lines_test.dart).
 class OneTimeTip extends ConsumerWidget {
   const OneTimeTip({super.key, required this.id, required this.icon, required this.text, this.padding = EdgeInsets.zero});
   final String id;
   final IconData icon;
   final String text;
   final EdgeInsets padding;
+
+  /// The Library's tip, the first time it opens.
+  static const libraryText = 'Start with the free packs. Every picture earns coins to open more.';
+
+  /// The board picker's tip, the first time it opens.
+  static const boardText = 'Pick a shape and a size. Bigger boards pay more coins and XP.';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

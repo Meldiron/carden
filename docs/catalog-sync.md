@@ -19,10 +19,17 @@ uses snapshot + delta sync instead: a launch reads about 30 rows.
    row on the device, minus a 10-second overlap for writes that landed out of order. A pack whose row
    changed has its puzzles read again whole, which is how removed puzzles disappear.
 4. **Offline.** The copy on the device is served when the server cannot be reached. The iPhone keeps
-   it in SharedPreferences (`catalog`); the web build in IndexedDB (`carden` / `cache` / `catalog`,
-   `lib/data/catalog_cache_web.dart`), because localStorage (5 MB, shared with the save) refused it
-   with `QuotaExceededError` and web players downloaded the snapshot on every launch until
-   2026-10-17. `CatalogCache` (`lib/data/catalog_cache.dart`) picks the store per platform.
+   it in a file, `catalog.json` in the app's cache folder (`lib/data/catalog_cache_io.dart`); the web
+   build in IndexedDB (`carden` / `cache` / `catalog`, `lib/data/catalog_cache_web.dart`), because
+   localStorage (5 MB, shared with the save) refused it with `QuotaExceededError` and web players
+   downloaded the snapshot on every launch until 2026-10-17. `CatalogCache`
+   (`lib/data/catalog_cache.dart`) picks the store per platform. **Never SharedPreferences on the
+   iPhone**: builds up to 127 kept it there (`catalog`), and at 5.6 million characters (11 MB as iOS
+   stores it) it is far over the 4 MB iOS allows for an app's whole preferences domain ("Attempting to
+   store >= 4194304 bytes of data in CFPreferences/NSUserDefaults on this platform is invalid"): iOS
+   then saved none of the app's preferences, and the welcome pages came back at every launch
+   (TestFlight, 2026-10-18). A copy left there by an earlier build moves to the file once and is
+   removed from SharedPreferences.
 
 ## Rules
 

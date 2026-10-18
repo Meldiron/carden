@@ -538,7 +538,7 @@ class _DifficultyScreenState extends ConsumerState<DifficultyScreen> {
         ),
       ] else ...[
       // Guided start: said once, the first time the player picks a board.
-      const OneTimeTip(id: 'board', icon: AppIcons.bigBoard, text: 'Pick a shape and a size. Bigger boards take longer and pay more coins and XP.', padding: EdgeInsets.only(bottom: 14)),
+      const OneTimeTip(id: 'board', icon: AppIcons.bigBoard, text: OneTimeTip.boardText, padding: EdgeInsets.only(bottom: 14)),
       const _SectionLabel('Mode'),
       const SizedBox(height: 8),
       _ModePicker(

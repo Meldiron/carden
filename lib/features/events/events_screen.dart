@@ -125,14 +125,14 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
                 if (wide)
                   SliverToBoxAdapter(
                     child: side(
-                      [dailyHeader, _GoalList(goals: daily, freeCount: Goals.dailyFree, inset: 0), if (swipeHint) const _SwipeHint(inset: 0)],
+                      [dailyHeader, _GoalList(goals: daily, freeCount: Goals.dailyFree, inset: 0), if (swipeHint) const QuestSwipeHint(inset: 0)],
                       [weeklyHeader, _GoalList(goals: weekly, freeCount: Goals.weeklyFree, weekly: true, inset: 0)],
                     ),
                   )
                 else ...[
                   SliverToBoxAdapter(child: dailyHeader),
                   SliverToBoxAdapter(child: _GoalList(goals: daily, freeCount: Goals.dailyFree)),
-                  if (swipeHint) const SliverToBoxAdapter(child: _SwipeHint()),
+                  if (swipeHint) const SliverToBoxAdapter(child: QuestSwipeHint()),
                   SliverToBoxAdapter(child: weeklyHeader),
                   SliverToBoxAdapter(child: _GoalList(goals: weekly, freeCount: Goals.weeklyFree, weekly: true)),
                 ],
@@ -486,9 +486,10 @@ class _SwapAction extends StatelessWidget {
   }
 }
 
-/// Under the daily quests until the player first swipes one: how a quest is swapped.
-class _SwipeHint extends StatelessWidget {
-  const _SwipeHint({this.inset = 20});
+/// Under the daily quests until the player first swipes one: how a quest is swapped. Two lines at
+/// most on a 390 pt iPhone, as every hint (test/hint_lines_test.dart).
+class QuestSwipeHint extends StatelessWidget {
+  const QuestSwipeHint({super.key, this.inset = 20});
 
   /// Side margin, as the quest list's.
   final double inset;

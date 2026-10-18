@@ -39,7 +39,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   static const _slides = [
     (title: 'Pictures made of cards', body: 'Every puzzle is a photo cut into cards and shuffled. Tap a card, then tap where it belongs, or drag it there.'),
-    (title: 'Snap, group, lock', body: 'Cards that belong together snap into a group anywhere on the board. A card in its true spot locks into the picture.'),
+    (title: 'Snap, group, lock', body: 'Cards that belong together snap into a group anywhere on the board. A card in its true spot locks into the picture for good.'),
     (title: 'A new picture daily', body: 'Play the daily puzzle to keep your streak. Earn coins and tickets to open more packs and events.'),
   ];
 
@@ -61,16 +61,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.dispose();
   }
 
-  /// "Start playing" is waiting for the catalogue (a slow first visit): the button shows a spinner.
+  /// "Start playing" or Skip is waiting for the catalogue (a slow first visit): the button shows a
+  /// spinner, on any page.
   bool _starting = false;
 
-  /// "Start playing": a new player goes straight into a first board (Home waits under it, for
-  /// when they leave it); anyone else lands on Home. A catalogue still loading (a slow first visit
-  /// on the web) is waited for up to 10 seconds, so the first board is not skipped.
+  /// "Start playing" and Skip: a new player goes straight into a first board (Home waits under it,
+  /// for when they leave it); anyone else lands on Home. A catalogue still loading (a slow first
+  /// visit) is waited for up to 10 seconds, so the first board is not skipped.
+  ///
+  /// The welcome ends for good at the tap, before that wait (owner, TestFlight 2026-10-18: the
+  /// welcome pages came back at every launch). A player who closes the app while the first board
+  /// loads starts on Home next time, where the first picture waits on top (docs/first-steps.md).
   Future<void> _finish() async {
     if (_starting) return;
     final router = GoRouter.of(context);
     bool newPlayer() => ref.read(firstStepsProvider).firstBoard && ref.read(solvedCountProvider) == 0 && (ref.read(profileProvider).value?.level ?? 1) <= 1;
+    ref.read(settingsProvider.notifier).setOnboarded();
     if (ref.read(firstBoardProvider) == null && newPlayer()) {
       setState(() => _starting = true);
       try {
@@ -78,7 +84,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       } catch (_) {}
       if (!mounted) return;
     }
-    ref.read(settingsProvider.notifier).setOnboarded();
     final first = ref.read(firstBoardProvider);
     final play = first != null && newPlayer();
     AppAnalytics.event('onboarding_completed', {'firstBoard': play});
@@ -86,10 +91,116 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (play) WidgetsBinding.instance.addPostFrameCallback((_) => router.push(first.route));
   }
 
+  /// Continue, or "Start playing" on the last page.
+  void _next() {
+    if (_index == _slides.length - 1) {
+      _finish();
+    } else {
+      A11y.reduceMotionOf(context) ? _page.jumpToPage(_page.page!.round() + 1) : _page.nextPage(duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic);
+    }
+  }
+
+  /// [builder] with how far the last page has come in: 0 on the pages before it, 1 on it, in
+  /// between while it slides in or out. The controls that change on the last page follow the swipe
+  /// with it (owner, TestFlight 2026-10-18: they switched at its midpoint, with no animation). With
+  /// Reduce motion the page changes at once, and they cross-fade instead.
+  Widget _toLast(Widget Function(BuildContext context, double t) builder) {
+    final end = _slides.length - 1;
+    if (A11y.reduceMotionOf(context)) {
+      return TweenAnimationBuilder<double>(
+        tween: Tween(end: _index == end ? 1.0 : 0.0),
+        duration: const Duration(milliseconds: 250),
+        builder: (context, t, _) => builder(context, t),
+      );
+    }
+    return AnimatedBuilder(
+      animation: _page,
+      builder: (context, _) {
+        final page = _page.hasClients && _page.position.hasContentDimensions ? _page.page ?? _index.toDouble() : _index.toDouble();
+        return builder(context, (page - (end - 1)).clamp(0.0, 1.0));
+      },
+    );
+  }
+
+  /// A Skip on its way out as the last page comes in ([t]): it fades, and drifts and shrinks a
+  /// little (not with Reduce motion). Its space stays, so nothing around it moves; out of reach and
+  /// out of VoiceOver once it is mostly gone.
+  Widget _leaving(BuildContext context, double t, Widget child) {
+    final reduce = A11y.reduceMotionOf(context);
+    final gone = Curves.easeOut.transform((t / 0.7).clamp(0.0, 1.0));
+    return IgnorePointer(
+      ignoring: t > 0.5,
+      child: ExcludeSemantics(
+        excluding: t > 0.5,
+        child: Opacity(
+          opacity: 1 - gone,
+          child: reduce ? child : Transform.translate(offset: Offset(0, 6 * gone), child: Transform.scale(scale: 1 - 0.1 * gone, child: child)),
+        ),
+      ),
+    );
+  }
+
+  /// The main button: "Continue" turns into "Start playing" as the last page comes in ([t]), the
+  /// two labels cross-fading on the one button (the old label rises out, the new one rises in, not
+  /// with Reduce motion). A spinner while the first board's picture is on its way.
+  Widget _startButton(BuildContext context, double t, VoidCallback onTap) {
+    final reduce = A11y.reduceMotionOf(context);
+    final fg = context.onAccent;
+    // Mostly one after the other, so a finger held halfway does not show two labels over each other.
+    final out = 1 - Curves.easeIn.transform((t / 0.55).clamp(0.0, 1.0));
+    final into = Curves.easeOut.transform(((t - 0.45) / 0.55).clamp(0.0, 1.0));
+    Widget label(String text, IconData? icon, double opacity, double dy) => Opacity(
+          opacity: opacity,
+          child: Transform.translate(
+            offset: Offset(0, reduce ? 0 : dy),
+            // As BigButton draws its label: never cut, shrunk to fit at a large text size.
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[Icon(icon, color: fg, size: 19), const SizedBox(width: 8)],
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(text, maxLines: 1, softWrap: false, style: TextStyle(fontSize: TypeSize.callout, fontWeight: FontWeight.w600, letterSpacing: -0.2, color: fg)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+    final last = _index == _slides.length - 1;
+    // One button for VoiceOver, named by the page (the labels drawn over it are only pictures).
+    return Semantics(
+      button: true,
+      label: last ? 'Start playing' : 'Continue',
+      onTap: _starting ? null : onTap,
+      excludeSemantics: true,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          BigButton(key: const ValueKey('welcome-next'), label: '', loading: _starting, onTap: onTap),
+          if (!_starting)
+            IgnorePointer(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Far enough apart that halfway the two never sit on each other.
+                  if (out > 0) label('Continue', null, out, -14 * (1 - out)),
+                  if (into > 0) label('Start playing', AppIcons.playFill, into, 14 * (1 - into)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final last = _index == _slides.length - 1;
     final safeTop = MediaQuery.paddingOf(context).top;
     // Room under the art for the longest title and text, so every page puts
     // its title on the same line.
@@ -185,33 +296,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
-                      BigButton(
-                        label: last ? 'Start playing' : 'Continue',
-                        icon: last ? AppIcons.playFill : null,
-                        loading: last && _starting,
-                        onTap: () {
-                          if (last) {
-                            _finish();
-                          } else {
-                            A11y.reduceMotionOf(context) ? _page.jumpToPage(_page.page!.round() + 1) : _page.nextPage(duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic);
-                          }
-                        },
-                      ),
+                      _toLast((context, t) => _startButton(context, t, _next)),
                       const SizedBox(height: 8),
-                      // "Start playing" already finishes on the last page; the
-                      // space stays so the button does not move.
-                      Visibility(
-                        visible: !last,
-                        maintainSize: true,
-                        maintainAnimation: true,
-                        maintainState: true,
-                        child: Pressable(
-                          onTap: _finish,
-                          child: Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Text(
-                              'Skip',
-                              style: TextStyle(color: c.textSecondary, fontWeight: FontWeight.w600),
+                      // "Start playing" already finishes on the last page: Skip leaves with the
+                      // swipe, and its space stays so the button does not move.
+                      _toLast(
+                        (context, t) => _leaving(
+                          context,
+                          t,
+                          Pressable(
+                            key: const ValueKey('welcome-skip'),
+                            onTap: _finish,
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Text(
+                                'Skip',
+                                style: TextStyle(color: c.textSecondary, fontWeight: FontWeight.w600),
+                              ),
                             ),
                           ),
                         ),
@@ -228,12 +329,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           Positioned(
             top: safeTop + 4,
             right: 12,
-            child: IgnorePointer(
-              ignoring: last,
-              child: AnimatedOpacity(
-                opacity: last ? 0 : 1,
-                duration: const Duration(milliseconds: 200),
-                child: Pressable(
+            child: _toLast(
+              (context, t) => _leaving(
+                context,
+                t,
+                Pressable(
                   onTap: _finish,
                   child: TapTarget(
                     child: Glass(
@@ -259,15 +359,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   /// page's title and text with the controls on the right.
   Widget _wide(BuildContext context) {
     final c = context.colors;
-    final last = _index == _slides.length - 1;
     final s = _slides[_index];
-    void next() {
-      if (last) {
-        _finish();
-      } else {
-        A11y.reduceMotionOf(context) ? _page.jumpToPage(_page.page!.round() + 1) : _page.nextPage(duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic);
-      }
-    }
 
     return Scaffold(
       backgroundColor: c.canvas,
@@ -329,17 +421,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         const SizedBox(height: 24),
                         Row(
                           children: [
-                            SizedBox(width: 240, child: BigButton(label: last ? 'Start playing' : 'Continue', icon: last ? AppIcons.playFill : null, loading: last && _starting, onTap: next)),
+                            SizedBox(width: 240, child: _toLast((context, t) => _startButton(context, t, _next))),
                             const SizedBox(width: 12),
-                            // "Start playing" already finishes on the last page.
-                            if (!last)
-                              Pressable(
-                                onTap: _finish,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Text('Skip', style: TextStyle(color: c.textSecondary, fontWeight: FontWeight.w600)),
+                            // "Start playing" already finishes on the last page: Skip leaves with the swipe.
+                            _toLast(
+                              (context, t) => _leaving(
+                                context,
+                                t,
+                                Pressable(
+                                  onTap: _finish,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Text('Skip', style: TextStyle(color: c.textSecondary, fontWeight: FontWeight.w600)),
+                                  ),
                                 ),
                               ),
+                            ),
                           ],
                         ),
                       ],
