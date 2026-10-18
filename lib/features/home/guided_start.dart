@@ -9,6 +9,7 @@ import '../../core/analytics.dart';
 import '../../core/haptics.dart';
 import '../../core/theme/tokens.dart';
 import '../../state/first_steps.dart';
+import '../../widgets/glass.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/ui.dart';
 
@@ -369,33 +370,38 @@ class _UnlockPickerState extends State<_UnlockPicker> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final picked = [for (final r in widget.upcoming) if (_picked.contains(r)) r];
-    return Padding(
+    // The list scrolls under the header; the button stays pinned at the bottom (owner, 2026-10-18).
+    return SheetScrollBody(
       key: const ValueKey('unlock-picker'),
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SheetHeader(title: 'Unlock early', subtitle: 'Pick what to open now. The rest keeps opening as you solve pictures.'),
-          const SizedBox(height: 12),
-          SoftCard(
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                for (var i = 0; i < widget.upcoming.length; i++) ...[
-                  if (i > 0) Divider(height: 1, color: c.stroke, indent: 52),
-                  _row(context, widget.upcoming[i]),
+      footer: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+        child: BigButton(
+          key: const ValueKey('unlock-picked'),
+          label: picked.isEmpty ? 'Pick something to unlock' : picked.length == widget.upcoming.length ? 'Unlock everything' : picked.length == 1 ? 'Unlock ${picked.first.label}' : 'Unlock ${picked.length}',
+          onTap: picked.isEmpty ? null : () => Navigator.of(context).pop(picked),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SheetHeader(title: 'Unlock early', subtitle: 'Pick what to open now. The rest keeps opening as you solve pictures.'),
+            const SizedBox(height: 12),
+            SoftCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  for (var i = 0; i < widget.upcoming.length; i++) ...[
+                    if (i > 0) Divider(height: 1, color: c.stroke, indent: 52),
+                    _row(context, widget.upcoming[i]),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          BigButton(
-            key: const ValueKey('unlock-picked'),
-            label: picked.isEmpty ? 'Pick something to unlock' : picked.length == widget.upcoming.length ? 'Unlock everything' : picked.length == 1 ? 'Unlock ${picked.first.label}' : 'Unlock ${picked.length}',
-            onTap: picked.isEmpty ? null : () => Navigator.of(context).pop(picked),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

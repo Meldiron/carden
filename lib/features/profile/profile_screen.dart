@@ -77,16 +77,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (_) {}
   }
 
-  /// Every statistic (boosters, packs, events, quests, best times by mode) in a tall sheet.
+  /// Every statistic (boosters, packs, events, quests, best times by mode) in a tall sheet. The
+  /// sheet scrolls it, and a drag down at its top closes the sheet (owner, 2026-10-18).
   void _showAllStatistics(BuildContext context) {
     showAppSheet(
       context,
-      builder: (ctx) => SizedBox(
-        height: MediaQuery.sizeOf(ctx).height * 0.86,
-        child: Consumer(
-          builder: (ctx, ref, _) => ListView(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
-            physics: const BouncingScrollPhysics(),
+      builder: (ctx) => Consumer(
+        builder: (ctx, ref, _) => Padding(
+          key: const ValueKey('statistics-sheet'),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SheetHeader(title: 'Statistics', subtitle: 'Everything you have played so far'),
               const SizedBox(height: 14),

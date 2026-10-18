@@ -422,12 +422,13 @@ class _CreditsSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final sources = creditSources(ref.watch(allPuzzlesProvider).value ?? const <Puzzle>[]);
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.82),
-      child: ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-        physics: const BouncingScrollPhysics(),
+    // The sheet scrolls the list, and a drag down at its top closes the sheet (owner, 2026-10-18).
+    return Padding(
+      key: const ValueKey('credits-sheet'),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SheetHeader(
             title: 'Image credits and licences',

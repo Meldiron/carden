@@ -16,6 +16,7 @@ import 'cached_url_image.dart';
 import 'glass.dart';
 import 'hash_image.dart';
 import 'icons.dart';
+import 'sheets.dart';
 
 export '../core/dates.dart';
 export '../core/numbers.dart';
@@ -115,16 +116,21 @@ class SoftCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final rounded = BorderRadius.circular(radius);
+    final outline = border && gradient == null ? Border.all(color: borderColor ?? c.stroke) : null;
+    // The outline is drawn over the content, and the content is clipped to the same radius: rows with
+    // their own fill (the swipe rows of Inbox, Friends and Quests) never cover the rounded corners
+    // (owner, 2026-10-18). The content keeps its inset of the outline's width.
     final card = Container(
       margin: margin,
       clipBehavior: clip,
       decoration: BoxDecoration(
         color: gradient == null ? (color ?? c.card) : null,
         gradient: gradient,
-        borderRadius: BorderRadius.circular(radius),
-        border: border && gradient == null ? Border.all(color: borderColor ?? c.stroke) : null,
+        borderRadius: rounded,
       ),
-      child: Padding(padding: padding, child: child),
+      foregroundDecoration: outline == null ? null : BoxDecoration(borderRadius: rounded, border: outline),
+      child: Padding(padding: outline == null ? padding : padding.add(outline.dimensions), child: child),
     );
     return onTap == null ? card : Pressable(onTap: onTap, scale: 0.985, child: card);
   }
@@ -1202,42 +1208,42 @@ class SheetHeader extends StatelessWidget {
 }
 
 /// Content-sized modal sheet in the iOS 26 style: glass surface, grabber,
-/// light dim behind it, drag or tap outside to dismiss. For full-height
-/// modals (Store, Wheel, Account) the router uses a CupertinoSheetRoute.
+/// light dim behind it. For full-height modals (Store, Wheel, Account) the
+/// router uses [SheetPage].
+///
+/// Every sheet follows one rule (`lib/widgets/sheets.dart`, docs/native-ui.md "Sheets"): it stops
+/// below [SheetMetrics.topGap], so a strip of the page stays in view and a tap there closes it; a
+/// drag down on the grabber, or on the content once it is at its top, closes it. Content taller
+/// than the sheet scrolls. With [scrollable] the builder lays out its own [SheetScrollBody], with a
+/// footer (the sheet's buttons) that stays put while the list above it scrolls. With [dismissible]
+/// false neither the dim nor a drag closes it.
 ///
 /// On a wide window (the web on a tablet or desktop) the same sheet opens as a centred panel
 /// ([PanelRoute]), the way iPad shows a form sheet, instead of stretching along the bottom.
 Future<T?> showAppSheet<T>(BuildContext context, {required WidgetBuilder builder, bool scrollable = false, bool dismissible = true}) {
+  // The dim has to be stronger in dark mode to separate the sheet from a dark page.
+  final barrier = Colors.black.withValues(alpha: context.isDark ? 0.5 : 0.32);
   if (context.isWide) {
     return Navigator.of(context, rootNavigator: true).push<T>(PanelRoute<T>(
       maxWidth: PageWidth.sheet,
       dismissible: dismissible,
-      barrierColor: Colors.black.withValues(alpha: context.isDark ? 0.5 : 0.32),
-      builder: (ctx) => GlassSheet(panel: true, child: builder(ctx)),
+      barrierColor: barrier,
+      builder: (ctx) => GlassSheet(panel: true, scrollable: scrollable, child: builder(ctx)),
     ));
   }
-  return showModalBottomSheet<T>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    // Root navigator: the sheet must cover the floating tab bar, which lives
-    // above the tab shell's body.
-    useRootNavigator: true,
-    isDismissible: dismissible,
-    enableDrag: dismissible,
-    backgroundColor: Colors.transparent,
-    elevation: 0,
-    showDragHandle: false,
-    shape: const RoundedRectangleBorder(),
-    clipBehavior: Clip.none,
-    // The dim has to be stronger in dark mode to separate the sheet from a dark page.
-    barrierColor: Colors.black.withValues(alpha: context.isDark ? 0.5 : 0.32),
+  // Root navigator: the sheet must cover the floating tab bar, which lives above the tab shell's body.
+  final navigator = Navigator.of(context, rootNavigator: true);
+  return navigator.push<T>(GlassSheetRoute<T>(
+    dismissible: dismissible,
+    barrierColor: barrier,
+    capturedThemes: InheritedTheme.capture(from: context, to: navigator.context),
     builder: (ctx) => GlassSheet(
       grabber: dismissible,
+      scrollable: scrollable,
       bottomInset: MediaQuery.viewInsetsOf(ctx).bottom,
       child: builder(ctx),
     ),
-  );
+  ));
 }
 
 /// Root messenger; `CardenApp` hosts a Scaffold above the Navigator for
