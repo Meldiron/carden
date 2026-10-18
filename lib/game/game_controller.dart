@@ -488,11 +488,20 @@ class GameController extends Notifier<GameState> {
     state = state.copyWith(peeking: false, previewing: false);
   }
 
-  /// The board is on screen: the preview's picture shows for a moment ([previewTime], shorter on
-  /// a giant board), then the cards are dealt. Called once the cards are drawn.
+  /// The board is on screen and in view: the preview's picture shows for a moment ([previewTime],
+  /// shorter on a giant board), then the cards are dealt. Called once the cards are drawn, and
+  /// again each time the board comes back into view ([holdPreview]); the time counts from then.
   void startPreview() {
     if (!state.previewing || (_peekTimer?.isActive ?? false)) return;
     _peekTimer = Timer(args.spec.isGiant ? giantPreviewTime : previewTime, endPeek);
+  }
+
+  /// The board went out of view while the picture shows before the deal (the app is not in front,
+  /// a sheet or another screen covers it): the picture waits, and shows again for the full time
+  /// once the board is back ([startPreview]). The clock waits with it.
+  void holdPreview() {
+    if (!state.previewing) return;
+    _peekTimer?.cancel();
   }
 
   static const previewTime = Duration(milliseconds: 1300);

@@ -307,12 +307,8 @@ class _WheelScreenState extends ConsumerState<WheelScreen> with SingleTickerProv
       }
       if (!mounted) return;
       Sfx.instance.win();
-      if (won.jackpot) {
-        Haptics.heavy();
-        if (!A11y.reduceMotionOf(context)) _confetti.play();
-      } else {
-        Haptics.success();
-      }
+      Haptics.success();
+      if (won.jackpot && !A11y.reduceMotionOf(context)) _confetti.play();
       setState(() {
         _spinning = false;
         _result = won;

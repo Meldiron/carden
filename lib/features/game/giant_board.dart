@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../core/a11y.dart';
+import '../../core/haptics.dart';
 import '../../core/theme/tokens.dart';
 import '../../game/board.dart';
 import '../../widgets/icons.dart';
@@ -197,7 +198,10 @@ class GiantMinimap extends StatelessWidget {
     Offset toBoard(Offset local) => (local - const Offset(inset, inset)) / scale;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapUp: (d) => zoom.centreOn(toBoard(d.localPosition)),
+      onTapUp: (d) {
+        Haptics.selection();
+        zoom.centreOn(toBoard(d.localPosition));
+      },
       onPanStart: (d) => zoom.lookAt(toBoard(d.localPosition)),
       onPanUpdate: (d) => zoom.lookAt(toBoard(d.localPosition)),
       child: Container(

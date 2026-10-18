@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:confetti/confetti.dart';
-import 'package:flutter/foundation.dart' show setEquals;
+import 'package:flutter/foundation.dart' show kIsWeb, setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:flutter/services.dart' show SystemUiOverlayStyle;
@@ -120,7 +120,13 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
   StreamSubscription<GameEventKind>? _sub;
   Timer? _saveDebounce;
   final _confetti = ConfettiController(duration: const Duration(seconds: 2));
+
+  /// The ticks of a Shuffle or Gather still to come.
+  HapticRun? _ticks;
   bool _completionHandled = false;
+
+  /// The win was this picture's first solve (a pack it completes is celebrated).
+  bool _firstSolve = false;
   ({int coins, int xp, bool levelUp, int level})? _reward;
 
   /// Quests this win finished (ready to claim) and what the level-up opened, for the overlay.
@@ -636,6 +642,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _routeAnimation?.removeStatusListener(_onRouteAnimation);
     // The board closes: nothing of it stays in this player's hand for the others.
     if (_coopGameId != null) {
       _coopCtrl.dragEnd(dropped: false);
@@ -650,6 +657,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     _boardSub?.cancel();
     _saveDebounce?.cancel();
     _confetti.dispose();
+    _ticks?.cancel();
     if (_viewSave?.isActive ?? false) {
       _viewSave!.cancel();
       _saveView();
@@ -661,8 +669,41 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     super.dispose();
   }
 
+  /// The board can be seen (the picture before the deal counts only then; owner, TestFlight
+  /// 2026-10-18): the app is in front (iOS keeps drawing an app that is not: the screenshot editor
+  /// and TestFlight's feedback sheet, Control Center, a call), this screen is on top with its way
+  /// in finished (Next puzzle fades it in), and nothing covers it (a sheet, an alert, another page).
+  /// On the web a window without focus is still in view.
+  bool _inView(BuildContext context) {
+    final life = WidgetsBinding.instance.lifecycleState;
+    if (life != null && life != AppLifecycleState.resumed && !(kIsWeb && life == AppLifecycleState.inactive)) return false;
+    final route = ModalRoute.of(context);
+    if (route != null && (!route.isCurrent || !(route.animation?.isCompleted ?? true))) return false;
+    return TickerMode.valuesOf(context).enabled;
+  }
+
+  /// The way in of this screen's page: the picture before the deal waits until it is done.
+  Animation<double>? _routeAnimation;
+
+  void _onRouteAnimation(AnimationStatus _) {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final animation = ModalRoute.of(context)?.animation;
+    if (!identical(animation, _routeAnimation)) {
+      _routeAnimation?.removeStatusListener(_onRouteAnimation);
+      _routeAnimation = animation?..addStatusListener(_onRouteAnimation);
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The picture before the deal waits while the app is not in front (no frame may come to say so).
+    if (_args != null && state != AppLifecycleState.resumed && !(kIsWeb && state == AppLifecycleState.inactive)) _ctrl.holdPreview();
+    if (mounted) setState(() {});
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       _saveNow();
       if (_viewSave?.isActive ?? false) {
@@ -676,6 +717,8 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
 
   void _onEvent(GameEventKind e) {
     switch (e) {
+      // Haptics (docs/native-ui.md): a click to pick up, a light tap to put down, a firmer one when
+      // cards join or lock, the success touch for a double lock; never a heavy one.
       case GameEventKind.pick:
         Sfx.instance.pick();
         Haptics.selection();
@@ -705,16 +748,24 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
         _scheduleSave();
       case GameEventKind.rearrange:
         Sfx.instance.whoosh();
-        Haptics.medium();
+        _shuffleTicks();
         _scheduleSave();
       case GameEventKind.invalid:
         Sfx.instance.error();
-        Haptics.heavy();
+        Haptics.light();
       case GameEventKind.win:
         _onWin();
     }
     if (_coach != null) _coachOn(e);
     _maybeStuckTip(e);
+  }
+
+  /// Shuffle and Gather: a few soft ticks while the cards slide (280 ms), then a light tap as they
+  /// settle; under Reduce motion the cards jump, so one tap.
+  void _shuffleTicks() {
+    _ticks?.cancel();
+    if (A11y.reduceMotionOf(context)) return Haptics.light();
+    _ticks = Haptics.run(const [Duration.zero, Duration(milliseconds: 90), Duration(milliseconds: 180)], lastAt: const Duration(milliseconds: 280));
   }
 
   /// The first board's hints follow what the player does: pick a card (its place is outlined),
@@ -900,6 +951,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     final s = ref.read(gameControllerProvider(_args!));
     final existing = ref.read(puzzleProgressProvider(widget.puzzleId));
     final firstTime = existing?.completed != true;
+    _firstSolve = firstTime;
     final stars = s.stars;
     final puzzle = ref.read(resolvedPuzzleProvider(widget.puzzleId));
     final daily = ref.read(dailyPuzzleProvider);
@@ -1311,11 +1363,15 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     // Locate: while the map is on, the selected card's place shows on it.
     final locate = sel != null && sel < state.board.cells && !state.board.isLocked(sel) ? sel : null;
     final coaching = _coach != null && image.hasValue && state.status == GameStatus.playing;
-    // A board dealt here opens on its picture: it shows from the first frame the cards are drawn.
+    // A board dealt here opens on its picture: it shows from the first frame the cards are drawn,
+    // and its time counts only while the player can see it (_inView): a picture that arrives late,
+    // while the app is not in front or something covers the board, waits for the player.
     final previewShown = state.previewing && image.hasValue && !dealing;
     if (previewShown) {
+      final inView = _inView(context);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) ctrl.startPreview();
+        if (!mounted) return;
+        inView ? ctrl.startPreview() : ctrl.holdPreview();
       });
     }
     // Play together: the shared game, the other players' cards on the board, and the end of the game
@@ -1362,6 +1418,8 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
       }
     }
     _lostTo = beat?.userId;
+    // The finished picture's pack, for the completion overlay.
+    final finishedPack = state.status == GameStatus.won && image.hasValue && !coopGuest ? _packProgress(puzzle, state) : null;
 
     return Scaffold(
       backgroundColor: c.canvas,
@@ -1640,7 +1698,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
                 ),
               ),
             )
-          else if (state.status == GameStatus.won && image.hasValue)
+          else if (finishedPack != null)
             _CompletionOverlay(
               puzzle: puzzle,
               image: image.requireValue,
@@ -1649,7 +1707,8 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
               questsReady: _questsReady,
               unlocked: _unlocked,
               first: widget.first,
-              pack: _packProgress(puzzle, state),
+              pack: finishedPack,
+              packDone: _firstSolve && finishedPack.complete,
               onQuests: () => context.go('/events'),
               onReplay: () {
                 AppAnalytics.event('puzzle_restarted', {..._boardProps(), 'from': 'replay'});
@@ -2255,8 +2314,12 @@ class _CompletionOverlay extends StatefulWidget {
     this.unlocked = const [],
     this.onQuests,
     this.first = false,
+    this.packDone = false,
   });
   final Puzzle puzzle;
+
+  /// This picture finished its pack (its first solve, and the pack is complete now).
+  final bool packDone;
   final ui.Image image;
   final GameState state;
   final ({int coins, int xp, bool levelUp, int level})? reward;
@@ -2283,16 +2346,56 @@ class _CompletionOverlay extends StatefulWidget {
 class _CompletionOverlayState extends State<_CompletionOverlay> {
   static const _swap = Duration(milliseconds: 250);
 
+  /// The small celebration's touch (the win itself plays the success touch): a soft tick as each
+  /// star pops in (they start 300 ms in, 150 ms apart, and are fullest about 200 ms later), and the
+  /// success touch once more when the picture finished its pack.
+  HapticRun? _ticks;
+  bool _packTouched = false;
+  static Duration _starAt(int i) => Duration(milliseconds: 300 + i * 150 + 200);
+  static final _packAt = _starAt(3) + const Duration(milliseconds: 200);
+
+  @override
+  void initState() {
+    super.initState();
+    _packTouched = widget.packDone;
+    _ticks = Haptics.run([for (var i = 0; i < widget.state.stars.clamp(0, 3); i++) _starAt(i)], lastAt: widget.packDone ? _packAt : null, last: HapticKind.success);
+  }
+
+  @override
+  void didUpdateWidget(_CompletionOverlay old) {
+    super.didUpdateWidget(old);
+    // The pack's count can arrive a moment after the overlay.
+    if (widget.packDone && !_packTouched) {
+      _packTouched = true;
+      _packTouch = Timer(const Duration(milliseconds: 300), Haptics.success);
+    }
+  }
+
+  Timer? _packTouch;
+
+  @override
+  void dispose() {
+    _ticks?.cancel();
+    _packTouch?.cancel();
+    super.dispose();
+  }
+
   /// Target mode; the picture layer stays mounted until its fade-out ends.
   bool _viewing = false;
   bool _pictureMounted = false;
 
-  void _view() => setState(() {
-        _viewing = true;
-        _pictureMounted = true;
-      });
+  void _view() {
+    Haptics.selection();
+    setState(() {
+      _viewing = true;
+      _pictureMounted = true;
+    });
+  }
 
-  void _results() => setState(() => _viewing = false);
+  void _results() {
+    Haptics.selection();
+    setState(() => _viewing = false);
+  }
 
   @override
   Widget build(BuildContext context) {

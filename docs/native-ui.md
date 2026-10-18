@@ -77,3 +77,28 @@ simulator, because it is all drawn by Flutter.
   `GlassTabBar.scrollEndPadding(context)`: the floating tab bar's height plus
   a margin under the tab bar, otherwise the home-indicator inset plus a
   margin, so the last row is never hidden.
+
+## Haptics
+
+Gentle and few, iOS kinds only, through `Haptics` in `lib/core/haptics.dart` (owner, 2026-10-18:
+"subtle, gentle, but in more places"). Never `HapticFeedback` directly, never a heavy impact, never a
+long pattern. Settings > Haptics turns them off (`Haptics.enabled`), iOS's System Haptics switch
+silences them too, and the web gets none. Every touch passes one gate (`HapticGate`): never two
+within 70 ms, at most 10 a second, so a giant board or a shared game's changes never buzz; a success
+always plays. A run of ticks along an animation (`Haptics.run`) is at most 5, at least 70 ms apart.
+
+| Where | Kind |
+| --- | --- |
+| Every button, card, row and alert action (`Pressable`: `BigButton`, `RoundIconButton`, `PhotoButton`, `ListRow`, `SoftCard`) | light |
+| Tab bar, `AppSegmentedControl`, pickers, View picture and back, a tap on the giant board's map | selection |
+| Picking a card up (tap or drag), a Hint showing a card | selection |
+| Putting a card down, a refused move (a locked card), a claim lost in Play together | light |
+| Cards joining or locking (a Magic too) | medium |
+| A double lock | success |
+| The deal after the picture: ticks as the sweep takes cards off the picture, a light touch as they land (Reduce motion: one tick) | selection run, light |
+| Shuffle and Gather: three ticks while the cards slide, a light touch as they settle | selection run, light |
+| Peek | light |
+| Picture complete | success, then a tick as each earned star pops in |
+| The picture that finishes its pack | success once more after the stars |
+| Rewards claimed, purchases, the Lucky Wheel's prize | success |
+

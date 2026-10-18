@@ -89,6 +89,14 @@ any other (`Board.shuffled`: no card in place, no pair joined).
   after it (`GameState.previewing`, `GameController.startPreview`). Shuffle and restart and Replay
   open on it too. Integration suites that play a board the moment it shows turn it off
   (`GameScreen.dealPreview = false`).
+  Its time counts only while the player can see the board (owner, TestFlight 2026-10-18: after Next
+  puzzle a slow picture went from the blurred placeholder straight to dealt cards): the app in front,
+  the game page on top with its fade-in done, nothing over it (`_inView` in `game_screen.dart`). iOS keeps
+  drawing an app that is not in front (the screenshot editor and TestFlight's feedback sheet, Control
+  Center, a call), so a picture that arrived then used to show to nobody. Now the picture waits
+  (`GameController.holdPreview`), the clock with it, and shows whole for the full time once the board
+  is in view again. Tests: `test/deal_preview_screen_test.dart`; QA: `integration_test/deal_next_test.dart`
+  (Next puzzle on a daily month with the picture 0 to 6 s late, `debugPictureDelay`).
 
 ### The other tools
 

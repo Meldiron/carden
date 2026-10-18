@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../core/a11y.dart';
+import '../../core/haptics.dart';
 import '../../core/theme/tokens.dart';
 import '../../game/board.dart';
 import '../../game/game_controller.dart';
@@ -325,6 +326,11 @@ class _BoardWidgetState extends State<BoardWidget> with SingleTickerProviderStat
   bool _dealFlight = false;
   Timer? _peekReturnTimer;
 
+  // The deal's soft ticks still to come ([_dealTicks]), and whether motion is reduced (from the
+  // last build).
+  HapticRun? _ticks;
+  bool _still = false;
+
   Tiling get tiling => widget.state.board.tiling;
   Size get boardSize => Size(widget.width, widget.height);
 
@@ -348,6 +354,8 @@ class _BoardWidgetState extends State<BoardWidget> with SingleTickerProviderStat
       return false;
     }
     final keys = widget.state.cardKeys;
+    // Picked up: the same click as a tap that picks a card.
+    Haptics.selection();
     setState(() {
       _dragSlot = slot;
       _dragDelta = Offset.zero;
@@ -455,6 +463,7 @@ class _BoardWidgetState extends State<BoardWidget> with SingleTickerProviderStat
       _peekReturn = true;
       _dealFlight = old.state.previewing;
       _peekReturnTimer?.cancel();
+      if (_dealFlight) _dealTicks();
       _peekReturnTimer = Timer(_dealFlight ? _dealTime : _peekFlight + _peekSpread, () {
         if (mounted) {
           setState(() {
@@ -473,7 +482,23 @@ class _BoardWidgetState extends State<BoardWidget> with SingleTickerProviderStat
     _autoPan.dispose();
     _bandTimer?.cancel();
     _peekReturnTimer?.cancel();
+    _ticks?.cancel();
     super.dispose();
+  }
+
+  /// The deal's touch (owner, 2026-10-18): a soft tick as the sweep takes cards off the picture (a
+  /// handful at most, never closer than 70 ms, whatever the board's size), then a light tap as they
+  /// land in their dealt places. Reduce motion: the picture fades into the deal, one tick.
+  void _dealTicks() {
+    _ticks?.cancel();
+    if (_still) return Haptics.selection();
+    final board = widget.state.board;
+    final leave = <Duration>[
+      for (var s = 0; s < board.cells; s++)
+        if (!board.isLocked(s) && board.slots[s] != s) _dealTime * _dealStart(board.slots[s]),
+    ];
+    if (leave.isEmpty) return;
+    _ticks = Haptics.run(leave, lastAt: _dealTime - const Duration(milliseconds: 60));
   }
 
   /// Peek's flight: each card takes [_peekFlight] plus up to [_peekSpread]
@@ -487,10 +512,12 @@ class _BoardWidgetState extends State<BoardWidget> with SingleTickerProviderStat
   /// the top left corner to the bottom right one (a card's start waits up to 45% of the time, by
   /// where its place is), then glides to where it was dealt, easing in and out.
   static const _dealTime = Duration(milliseconds: 1050);
-  Curve _dealCurve(int card) {
+  Curve _dealCurve(int card) => Interval(_dealStart(card), 1, curve: Curves.easeInOutCubic);
+
+  /// When [card] leaves the picture in the deal, as a fraction of [_dealTime].
+  double _dealStart(int card) {
     final home = tiling.cellCenter(card, boardSize);
-    final t = ((home.dx + home.dy) / (boardSize.width + boardSize.height)).clamp(0.0, 1.0);
-    return Interval(0.45 * t, 1, curve: Curves.easeInOutCubic);
+    return 0.45 * ((home.dx + home.dy) / (boardSize.width + boardSize.height)).clamp(0.0, 1.0);
   }
 
   /// A tap on [slot]: select, deselect or move (the controller decides). No
@@ -648,6 +675,7 @@ class _BoardWidgetState extends State<BoardWidget> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     final board = widget.state.board;
     final c = context.colors;
+    _still = A11y.reduceMotionOf(context);
     final cell = tiling.cellSize(boardSize);
     final zoom = widget.zoom;
     // Giant boards have cells of 20 to 30 pt: gutters, corners and strokes

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -36,7 +37,13 @@ final puzzleImageFullProvider = FutureProvider.autoDispose.family<ui.Image, Stri
 /// The decode for a picture: full size for giant boards, else the shared 1400 px one.
 FutureProvider<ui.Image> puzzleImageFor(String url, {required bool giant}) => giant ? puzzleImageFullProvider(url) : puzzleImageProvider(url);
 
+/// Integration suites only: a pause before each picture is read, as a slow connection gives one, to
+/// check what waits for the picture.
+@visibleForTesting
+Duration debugPictureDelay = Duration.zero;
+
 Future<ui.Image> _decode(String url, {int? targetWidth}) async {
+  if (debugPictureDelay > Duration.zero) await Future<void>.delayed(debugPictureDelay);
   Uint8List bytes;
   if (url.startsWith('asset:')) {
     bytes = (await rootBundle.load(url.substring(6))).buffer.asUint8List();

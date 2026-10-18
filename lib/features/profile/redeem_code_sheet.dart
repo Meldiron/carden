@@ -46,7 +46,7 @@ class _RedeemCodePanelState extends ConsumerState<RedeemCodePanel> {
     final result = await PackCodes.redeem(ref.read(appwriteClientProvider), _controller.text);
     if (!mounted) return;
     if (!result.ok || result.packId == null) {
-      Haptics.heavy();
+      Haptics.light();
       setState(() {
         _busy = false;
         _error = result.message;
