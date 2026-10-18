@@ -1,8 +1,7 @@
 {
- "name": "Daily",
  "category": "Daily",
  "kind": "daily",
- "description": "One pleasant, varied picture for every day of the month.",
+ "_note": "No name/description on purpose: finalize_pack would copy them onto every month and overwrite the month names ('October 2024'); until 2026-10-18 this spec said \"Daily\", which named all 12 months of its year 'Daily'.",
  "pool": "daily-2023",
  "sources": [
   "commons",

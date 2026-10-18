@@ -9,6 +9,7 @@ import '../../core/sfx.dart';
 import '../../core/a11y.dart';
 import '../../core/analytics.dart';
 import '../../core/theme/tokens.dart';
+import '../../state/daily_gift.dart';
 import '../../state/profile.dart';
 import '../../state/reminders.dart';
 import '../../state/settings.dart';
@@ -131,8 +132,9 @@ class _DailyRewardSheetState extends ConsumerState<DailyRewardSheet> {
     final profile = ref.watch(profileProvider).value;
     final available = profile?.dailyAvailable ?? false;
     final streak = profile?.streak ?? 0;
-    // After a missed day the next claim starts again at day 1, whatever the stored streak says.
-    final todayIdx = profile == null ? 0 : (available ? profile.nextGiftDay : profile.giftsClaimedThisRound - 1);
+    // Numbered by the streak (Day 8 to 14 in the second week). After a missed day the next claim
+    // starts again at day 1, whatever the stored streak says.
+    final week = profile == null ? GiftWeek.of(streak: 0, claimedToday: false) : GiftWeek.forProfile(profile);
     final missed = profile != null && !profile.streakAlive && profile.streak > 0;
     final canRestore = profile != null && ref.read(profileProvider.notifier).canRestoreStreak;
 
@@ -152,15 +154,15 @@ class _DailyRewardSheetState extends ConsumerState<DailyRewardSheet> {
             center: true,
           ),
           const SizedBox(height: 16),
-          _WeekList(todayIdx: todayIdx, claimedToday: !available),
+          _WeekList(week: week),
           if (profile != null && canRestore) ...[
             const SizedBox(height: 10),
             // 001 B: restoring the streak just lost also claims today's gift as the next day of it.
-            _RestoreRow(streak: profile.streak, day: profile.streak % 7 + 1, cost: Economy.streakRestoreTickets(profile.streak), loading: _restoring, onTap: _restore),
+            _RestoreRow(streak: profile.streak, day: profile.streak + 1, cost: Economy.streakRestoreTickets(profile.streak), loading: _restoring, onTap: _restore),
           ],
           const SizedBox(height: 16),
           BigButton(
-            label: available ? 'Claim day ${todayIdx + 1} gift' : 'Close',
+            label: available ? 'Claim day ${week.today} gift' : 'Close',
             icon: available ? AppIcons.dailyGift : null,
             kind: available ? ButtonKind.primary : ButtonKind.secondary,
             loading: _claiming,
@@ -177,15 +179,16 @@ enum _DayState { claimed, today, claimedToday, later }
 
 /// The week as a list: a status mark, the day, then its coins, tickets and
 /// hints in aligned columns. Nothing is abbreviated: every gift reads in full.
+/// The days carry the streak's own numbers ([GiftWeek]): Day 8 to 14 in the
+/// second week, whose gifts are those of Day 1 to 7.
 class _WeekList extends StatelessWidget {
-  const _WeekList({required this.todayIdx, required this.claimedToday});
-  final int todayIdx;
-  final bool claimedToday;
+  const _WeekList({required this.week});
+  final GiftWeek week;
 
   _DayState _state(int i) {
-    if (i < todayIdx) return _DayState.claimed;
-    if (i > todayIdx) return _DayState.later;
-    return claimedToday ? _DayState.claimedToday : _DayState.today;
+    if (i < week.todayIndex) return _DayState.claimed;
+    if (i > week.todayIndex) return _DayState.later;
+    return week.claimedToday ? _DayState.claimedToday : _DayState.today;
   }
 
   @override
@@ -193,18 +196,19 @@ class _WeekList extends StatelessWidget {
     final c = context.colors;
     final rows = <Widget>[];
     for (var i = 0; i < 7; i++) {
-      final isToday = i == todayIdx;
+      final isToday = i == week.todayIndex;
+      final day = week.dayAt(i);
       // No hairline next to today's row: its own raised card separates it.
-      if (i > 0 && !isToday && i - 1 != todayIdx) rows.add(Divider(height: 1, thickness: 0.5, color: c.stroke, indent: 52));
+      if (i > 0 && !isToday && i - 1 != week.todayIndex) rows.add(Divider(height: 1, thickness: 0.5, color: c.stroke, indent: 52));
       rows.add(
         _DayRow(
-          day: i + 1,
-          reward: Economy.dailyRewards[i],
+          day: day,
+          reward: Economy.dailyRewards[GiftWeek.rewardIndex(day)],
           state: _state(i),
           tag: switch (_state(i)) {
             _DayState.today => 'Today',
             _DayState.claimedToday => 'Claimed',
-            _ when claimedToday && i == todayIdx + 1 => 'Tomorrow',
+            _ when week.claimedToday && i == week.todayIndex + 1 => 'Tomorrow',
             _ => null,
           },
         ),
@@ -252,6 +256,12 @@ class _DayRow extends StatelessWidget {
     // size) the amounts shrink to fit them, so the day keeps its room on a small phone.
     double column(double w) => w * scaler.scale(1).clamp(1.0, 1.35);
 
+    // The streak's day in the mark; a long streak's three digits shrink to stay inside the circle.
+    Widget dayNumber(TextStyle style) => Padding(
+      padding: EdgeInsets.all(markSize * 0.12),
+      child: FittedBox(fit: BoxFit.scaleDown, child: Text('$day', maxLines: 1, style: style)),
+    );
+
     final Widget mark = switch (state) {
       _DayState.claimed || _DayState.claimedToday => Container(
         width: markSize,
@@ -265,10 +275,7 @@ class _DayRow extends StatelessWidget {
         height: markSize,
         alignment: Alignment.center,
         decoration: BoxDecoration(shape: BoxShape.circle, color: context.accentFill),
-        child: Text(
-          '$day',
-          style: TextStyle(fontSize: markSize * 0.47, fontWeight: FontWeight.w700, color: context.onAccent),
-        ),
+        child: dayNumber(TextStyle(fontSize: markSize * 0.47, fontWeight: FontWeight.w700, color: context.onAccent)),
       ),
       _DayState.later => Container(
         width: markSize,
@@ -278,10 +285,7 @@ class _DayRow extends StatelessWidget {
           shape: BoxShape.circle,
           border: Border.all(color: c.stroke, width: 1.5),
         ),
-        child: Text(
-          '$day',
-          style: TextStyle(fontSize: markSize * 0.47, fontWeight: FontWeight.w600, color: c.textSecondary),
-        ),
+        child: dayNumber(TextStyle(fontSize: markSize * 0.47, fontWeight: FontWeight.w600, color: c.textSecondary)),
       ),
     };
 
@@ -375,9 +379,16 @@ class _DayRow extends StatelessWidget {
       ),
     );
 
+    // VoiceOver reads a row as one line: "Day 8, today: 50 coins".
+    Widget spoken(Widget child) => Semantics(
+      container: true,
+      label: 'Day $day${tag != null ? ', ${tag!.toLowerCase()}' : (done ? ', claimed' : '')}: ${giftWords(reward)}',
+      child: ExcludeSemantics(child: child),
+    );
+
     if (today) {
       // A raised card over the list, reaching a little past its edges.
-      return LayoutBuilder(
+      return spoken(LayoutBuilder(
         builder: (context, cons) => SizedBox(
           height: height,
           width: cons.maxWidth,
@@ -401,11 +412,18 @@ class _DayRow extends StatelessWidget {
             ),
           ),
         ),
-      );
+      ));
     }
-    return row;
+    return spoken(row);
   }
 }
+
+/// A gift in words, for VoiceOver: "100 coins, 1 ticket".
+String giftWords(({int coins, int tickets, int hints}) r) => [
+      countOf(r.coins, 'coin'),
+      if (r.tickets > 0) countOf(r.tickets, 'ticket'),
+      if (r.hints > 0) countOf(r.hints, 'hint'),
+    ].join(', ');
 
 /// The streak restore offer as one row: what happened, what it brings back,
 /// and a small tinted button with the price. It sits above the claim and
