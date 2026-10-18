@@ -123,6 +123,7 @@ A route added later is named after its last fixed part (`/join/:code` is `join`)
 | `piggy_upgraded` | `level` (the new size's step), `capacity` (the new size), `price` | A bigger piggy bank bought |
 | `event_reward_claimed` | `event` | A live event's reward (Quests, Claim all) |
 | `friend_added` | `fromLink` | Add friend by code, typed or from an `/add-friend` link |
+| `friend_invite_shared` | `via` (`sheet`, `copy`) | Social > Friends > Share: the invite link went to the share sheet, or was copied (a browser without one) (`friend_invite.dart`) |
 | `inbox_opened` | | Social > Inbox shown (the segment, or a link to it) |
 | `inbox_message_opened` | | A message opened |
 | `inbox_message_claimed` | `coins`, `tickets`, `hints`, `peeks`, `magics` | A message's gift claimed |
@@ -137,6 +138,7 @@ A route added later is named after its last fixed part (`/join/:code` is `join`)
 | `shortcut_opened` | `daily` | The Home Screen quick action |
 | `reminder_opened` | `daily` | A daily reminder tapped |
 | `my_puzzle_uploaded` | `source` (`gallery`, `camera`) | A photo added in My Puzzles |
+| `feedback_opened` | `via` (`settings`, `shake`) | Send feedback opened from Settings > Help, or by shaking the iPhone on any screen (`help.dart`, `shake_feedback.dart`) |
 | `gift_sent` | `kind` (`ticket`, `coins`) | A friend gift the server accepted (Player > Send a gift, `friend_gifts.dart`; docs/friend-gifts.md) |
 | `gift_claimed` | `kind` (`ticket`, `coins`) | A friend's gift claimed in the inbox (after its `inbox_message_claimed`) |
 | `push_permission` | `result` (`granted`, `denied`) | The iOS notification prompt answered, from the gift question or Settings > Gifts from friends (`PushRegistration.enable`) |

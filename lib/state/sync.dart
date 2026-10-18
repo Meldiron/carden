@@ -12,6 +12,7 @@ import '../data/local_store.dart';
 import '../data/repositories.dart' show deterministicId;
 import '../data/sync/backend.dart';
 import '../data/sync/changes.dart';
+import '../data/sync/device_copy.dart';
 import '../data/sync/notice.dart';
 import '../data/sync/ops.dart';
 import '../models/models.dart';
@@ -110,6 +111,12 @@ class SyncController extends Notifier<SyncState> {
   static const local = 'local';
 
   late LocalStore _store;
+
+  /// The copy of the rows on the device (a file per player on the iPhone, [syncRowsProvider]).
+  late SyncRows _rows;
+
+  /// This device's name (`syncDevice`), the first four characters of its op ids and session ids.
+  late String _device;
   _Account? _acct;
   models.User? _user;
   bool _foreground = true;
@@ -132,9 +139,10 @@ class SyncController extends Notifier<SyncState> {
   @override
   SyncState build() {
     _store = ref.read(localStoreProvider);
+    _rows = ref.read(syncRowsProvider);
     var device = _store.getText('syncDevice');
     if (device == null || device.length != 4) _store.setText('syncDevice', device = SyncOp.newDevice());
-    SyncOp.device = device;
+    SyncOp.device = _device = device;
     ref.listen(authProvider, (_, next) {
       if (next.hasValue) Future.microtask(() => attach(next.value));
     });
@@ -167,7 +175,7 @@ class SyncController extends Notifier<SyncState> {
         a.ops.addAll(orphan.ops);
         _saveOps(a);
         _store.remove(_key(local, 'ops'));
-        _store.remove(_key(local, 'rows'));
+        _rows.remove(local);
       }
     }
     _acct = a;
@@ -311,6 +319,11 @@ class SyncController extends Notifier<SyncState> {
     final quiet = _quietUntil != null && DateTime.now().isBefore(_quietUntil!);
     final known = a.synced, tell = a.synced && !silent && !quiet;
     var notice = SyncNotice.empty;
+    // The first read of a run compares the server with the copy stored on the device, which can lack
+    // this device's own last writes (iOS stored none of the app's preferences while builds up to 127
+    // kept the catalogue there: TestFlight feedback, 2026-10-18). What changed since is told only
+    // when another device or the server did it.
+    final restored = !a.fetched;
 
     // Profile ops the server already has: sent before, but the answer never came.
     final applied = asStrings(fresh['appliedOps']).toSet();
@@ -321,7 +334,8 @@ class SyncController extends Notifier<SyncState> {
       if (expected != null && plan != null && plan.skipped == null) expected = applyChanges(expected, plan.changes);
       _finish(a, op, plan?.ledger ?? const [], fresh);
     }
-    if (tell && expected != null) notice += SyncNotice.profile(expected, fresh);
+    final source = SyncSource.of(before: asStrings(a.profile?['appliedOps']), after: applied, device: _device);
+    if (tell && expected != null && !(restored && source.thisDeviceOnly)) notice += SyncNotice.profile(expected, fresh);
     a.profile = fresh;
 
     final before = <String, Map<String, dynamic>>{}, after = <String, Map<String, dynamic>>{};
@@ -367,7 +381,12 @@ class SyncController extends Notifier<SyncState> {
         after[pid] = {...r, 'layout': before[pid]!['layout']};
       }
     }
-    if (tell) notice += SyncNotice.progress(before, after);
+    if (tell) {
+      // After a start, this device's own play-throughs (their session ids name the device) are not
+      // news either, unless another device has been at work since (it may have finished one).
+      final news = restored && !source.elsewhere ? {for (final e in after.entries) if (!_ownSession(e.value)) e.key: e.value} : after;
+      notice += SyncNotice.progress(before, news);
+    }
 
     a.synced = true;
     a.fetched = true;
@@ -380,6 +399,9 @@ class SyncController extends Notifier<SyncState> {
     }
     _tell(a, notice);
   }
+
+  /// A play-through this device started (its session id begins with the device's name).
+  bool _ownSession(Map<String, dynamic> row) => (row['session'] ?? '').toString().startsWith(_device);
 
   /// A changed row that is this device's own write (its answer was lost): the first unsent ops of
   /// the picture produce exactly it.
@@ -408,6 +430,9 @@ class SyncController extends Notifier<SyncState> {
     bool recent(DateTime? t) => t != null && now.difference(t) < boardFreshFor;
     return recent(a.fetchedAt) || recent(a.readAt[pid]);
   }
+
+  /// This device's newest op ids the tidy-up leaves on the profile row.
+  static const keepOwnIds = 10;
 
   /// How long a parked op waits before a resume tries it again.
   @visibleForTesting
@@ -589,14 +614,17 @@ class SyncController extends Notifier<SyncState> {
       if (dedupe(list).length != list.length) changes[k] = const Unique();
     }
     final now = DateTime.now().toUtc();
-    // This device's ids once their ops are confirmed (none is queued any more), and any id older
+    // This device's ids once their ops are confirmed (none is queued any more), all but its newest
+    // [keepOwnIds] (they show which device changed the save last, [SyncSource]), and any id older
     // than 30 days (a device that is gone). Another device's recent ids stay: it may still be
     // waiting for an answer.
     final ids = asStrings(p['appliedOps']);
     final queued = {for (final o in a.ops) o.id};
-    final mine = [for (final id in ids) if (id.startsWith(SyncOp.device) && !queued.contains(id)) id];
+    final mine = [for (final id in ids) if (id.startsWith(SyncOp.device) && !queued.contains(id)) id]
+      ..sort((x, y) => (SyncOp.idTime(x) ?? now).compareTo(SyncOp.idTime(y) ?? now));
     final stale = [for (final id in ids) if ((SyncOp.idTime(id) ?? now).isBefore(now.subtract(const Duration(days: 30)))) id];
-    if (mine.length > 20 || stale.isNotEmpty) changes['appliedOps'] = Remove(dedupe([...mine, ...stale]));
+    final drop = mine.length > 20 ? mine.sublist(0, mine.length - keepOwnIds) : const <String>[];
+    if (drop.isNotEmpty || stale.isNotEmpty) changes['appliedOps'] = Remove(dedupe([...drop, ...stale]));
     if (!changes.containsKey('claimedGoals')) {
       final old = [for (final k in asStrings(p['claimedGoals'])) if (_questDay(k)?.isBefore(now.subtract(const Duration(days: 21))) ?? false) k];
       if (old.isNotEmpty) changes['claimedGoals'] = Remove(old);
@@ -707,7 +735,7 @@ class SyncController extends Notifier<SyncState> {
         debugPrint('sync: unreadable op dropped: $e');
       }
     }
-    final rows = _store.getJson(_key(userId, 'rows'));
+    final rows = _rows.read(userId);
     if (rows != null) {
       final p = rows['profile'];
       if (p is Map) a.profile = Map<String, dynamic>.from(p);
@@ -743,7 +771,7 @@ class SyncController extends Notifier<SyncState> {
 
   void _saveRowsNow(_Account a) {
     if (a.profile == null && a.progress.isEmpty) return;
-    _store.setJson(_key(a.userId, 'rows'), {'profile': a.profile, 'progress': a.progress, 'cursor': a.cursor, 'synced': a.synced});
+    _rows.write(a.userId, {'profile': a.profile, 'progress': a.progress, 'cursor': a.cursor, 'synced': a.synced});
   }
 
   void _advance(_Account a, dynamic updatedAt) {
@@ -790,6 +818,10 @@ bool _sameValues(dynamic a, dynamic b) {
 }
 
 final syncProvider = NotifierProvider<SyncController, SyncState>(SyncController.new);
+
+/// Where the sync keeps its copy of the rows on the device: SharedPreferences unless `main` opens the
+/// platform's store (a file per player on the iPhone, `openSyncRows`).
+final syncRowsProvider = Provider<SyncRows>((ref) => PrefsSyncRows(ref.watch(localStoreProvider)));
 
 /// What arrived from other devices and has not been shown yet.
 class SyncNoticeNotifier extends Notifier<SyncNotice> {

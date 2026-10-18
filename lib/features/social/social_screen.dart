@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/analytics.dart';
-import '../../core/app_links.dart';
 import '../../core/haptics.dart';
 import '../../core/a11y.dart';
 import '../../core/theme/tokens.dart';
@@ -20,6 +19,7 @@ import '../../widgets/icons.dart';
 import '../../widgets/ui.dart';
 import '../home/header_bar.dart';
 import 'friend_gifts.dart';
+import 'friend_invite.dart';
 import 'inbox.dart';
 
 /// Social's tab: 0 the leaderboard, 1 friends, 2 the inbox. A provider, so a link
@@ -448,46 +448,14 @@ class _FriendsState extends ConsumerState<_Friends> {
     final onAdd = widget.onAdd;
     final c = context.colors;
     final friends = ref.watch(friendsProvider);
-    final me = ref.watch(currentUserIdProvider);
     final side = 20 + pageInsetOf(context, maxWidth: PageWidth.reading);
     return ListView(
       physics: const BouncingScrollPhysics(),
       padding: EdgeInsets.fromLTRB(side, 0, side, GlassTabBar.scrollEndPadding(context)),
       children: [
-        // Invite: the link opens the game with this player's code filled in (Social > Friends >
-        // Add friend by code), in the app where it is installed and on the web elsewhere.
-        SoftCard(
-          padding: Insets.card,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Invite friends', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 4),
-              Text('Your link lets friends add you in one tap.', style: TextStyle(fontSize: TypeSize.footnote, color: c.textSecondary)),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: BigButton(
-                      key: const ValueKey('copy-invite'),
-                      label: 'Copy link',
-                      kind: ButtonKind.secondary,
-                      height: 44,
-                      onTap: me == null
-                          ? null
-                          : () {
-                              Clipboard.setData(ClipboardData(text: '${AppLink.webOrigin}/add-friend?code=${Uri.encodeQueryComponent(me)}'));
-                              showToast(context, 'Copied your invite link', icon: AppIcons.copy);
-                            },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(child: BigButton(key: const ValueKey('add-friend-open'), label: 'Add friend', kind: ButtonKind.secondary, height: 44, onTap: onAdd)),
-                ],
-              ),
-            ],
-          ),
-        ),
+        // Invite: Share sends the link that opens the game with this player's code filled in
+        // (lib/features/social/friend_invite.dart), and Add friend takes a friend's code.
+        FriendInviteCard(onAdd: onAdd),
         const SizedBox(height: 16),
         friends.when(
           loading: () => const Padding(padding: EdgeInsets.all(30), child: Loader()),

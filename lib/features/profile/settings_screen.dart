@@ -9,6 +9,7 @@ import '../../core/analytics.dart';
 import '../../core/links.dart';
 import '../../core/platform.dart';
 import '../../core/reminders.dart';
+import '../../core/shake.dart';
 import '../../core/a11y.dart';
 import '../../core/theme/tokens.dart';
 import '../../state/auth.dart';
@@ -27,6 +28,7 @@ import '../../widgets/ui.dart';
 import '../social/player_safety.dart';
 import 'help.dart';
 import 'redeem_code_sheet.dart';
+import 'shake_feedback.dart';
 
 /// The App Store page where a player writes a review of the game.
 final appStoreReviewUrl = Uri.parse('https://apps.apple.com/app/id6821644423?action=write-review');
@@ -257,6 +259,16 @@ class SettingsScreen extends ConsumerWidget {
             // Contact support leaves the app for Mail: an arrow out, like the other links.
             _NavRow(key: const ValueKey('settings-support'), external: true, icon: AppIcons.mail, label: 'Contact support', onTap: () => contactSupport(context, ref)),
             _NavRow(key: const ValueKey('settings-feedback'), icon: AppIcons.chatBubbleText, label: 'Send feedback', onTap: () => showFeedbackSheet(context)),
+            // A shake on any screen opens Send feedback (lib/features/profile/shake_feedback.dart); iPhone only.
+            if (ShakeChannel.supportedOn(caps))
+              _SwitchRow(
+                key: const ValueKey('settings-shake-feedback'),
+                icon: AppIcons.devicePhonePortrait,
+                label: 'Shake to send feedback',
+                subtitle: 'Shake your iPhone on any screen',
+                value: ref.watch(shakeFeedbackProvider),
+                onChanged: ref.read(shakeFeedbackProvider.notifier).set,
+              ),
           ]),
           group('About', [
             _NavRow(icon: AppIcons.docText, label: 'Image credits and licences', onTap: () => _showCredits(context)),
