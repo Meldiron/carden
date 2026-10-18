@@ -30,12 +30,13 @@ Home and Library
 - Library search finds pictures by title, new packs carry a New badge, and there are Finished, New and Hide finished filters.
 
 Settings and account
-- Daily reminders at a time you choose, and a note the evening before a world-day event if you have been away. Both are off until you turn them on.
+- Notifications with a switch for each: daily reminders at your time, a note before a world-day event if you have been away, friend gifts and messages from Carden.
+- Shake your iPhone on any screen to send us feedback.
 - Settings > Accessibility: text size up to 200%, Reduce motion, Increase contrast and Differentiate without colour.
 - Settings > Privacy > Share usage data: usage data goes only to our own servers, and you can turn it off.
 - Delete your account in the app: Profile > Settings > Manage account > Delete account.
 - Report or block a player from their page; blocked players leave your leaderboard and cannot join your games. Player names are checked for offensive words.
-- Links to play.carden.page open the matching screen in the app. Dark and tinted Home Screen icons on iOS 18. Terms of use have their own page.
+- Links to play.carden.page open the matching screen in the app. Dark and tinted Home Screen icons on iOS 18.
 
 Pictures and sync
 - A rebuilt catalogue served from our own servers: no people, no repeats, at least 20 pictures per pack, new Illustration, AI and Abstract packs.

@@ -1,7 +1,7 @@
 What is new since the last build:
-- Play together: whoever grabs a card first keeps it, the other player's card slides back with a short note, and a drag never gets stuck. Invite links now show the real picture and board in the message preview and open the app directly.
-- New board sizes: Triangles 3x3 and Hexagons 4x4 and 6x6. A few edge pieces of a unique shape start in place, so the picture stays a full rectangle. Dark night cards that differ only by a star or two count as the same card.
-- Fixes from your feedback: the whole picture always shows before the deal, also after Next puzzle; the daily gift counts on past day 7 (Day 8 to 14 in the second week); daily packs of 2023 and 2024 have their month names again; the Home Screen widget shows today's picture instead of a grey square.
-- Gentler haptics: no strong buzzes, a soft run of ticks as cards are dealt or shuffled, and a success tap when a picture is complete.
+- Fixes from your feedback: the welcome pages no longer come back after Skip, and a guest no longer sees "Synced from another device" for their own play (the iPhone was not saving the game's settings).
+- Sheets close with a swipe down from their top, leave a strip above to tap, and keep their buttons in view: Unlock early, Statistics, image credits, the Store, Inbox messages.
+- Notifications: one question after your second picture, with a switch for each kind, all on. New in Settings: Messages from Carden.
+- Shake on any screen to send feedback. Friends > Share opens the share sheet, blocking a player closes their page, and the hints are shorter.
 
-Please try: add the Carden widget to your Home Screen, then send a Play together invite in Messages and both grab the same card at once.
+Please try: shake the phone on Home, then open Profile > Statistics > See all and swipe it down from the top.

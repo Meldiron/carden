@@ -10,7 +10,7 @@ PLAY TOGETHER
 A live shared board for up to 5 people, who join by an invite link. Device A: open a picture, start the board, tap Pause > Play together; the share sheet opens with a link (join.carden.page/...). Open it on device B: the app if installed (universal link), else Safari (the web version, no account needed; a Mac works too). Both move cards on the same board, each player in their own colour. The players button at the top lists everyone: the host can Remove a player or End game for everyone, a guest can Leave game. Only people with the link can join: no matchmaking, no strangers, no chat (only card moves are shared). A player's page has Report and Block; blocked players cannot join each other's games. My Puzzles photos cannot be shared.
 
 FRIEND GIFTS
-Friends are added by friend code (Social > Friends). On a friend's page, Send a gift sends 1 ticket or 150 coins, free for the sender, once a day per friend; it arrives in the friend's Social > Inbox and expires after 24 hours. Gifts cannot be bought or traded. Gift notifications are the app's only push notifications; permission is asked after a first gift or friend, and Settings > Gifts from friends turns them off.
+Friends are added by friend code (Social > Friends). On a friend's page, Send a gift sends 1 ticket or 150 coins, free for the sender, once a day per friend; it arrives in the friend's Social > Inbox and expires after 24 hours. Gifts cannot be bought or traded. Gift notifications and messages from Carden are push notifications.
 
 PURCHASES
 StoreKit 2 consumables (coins, tickets, booster bundles of Peeks, Hints and Magic) and two auto-renewable subscriptions in the "VIP" group (vip_monthly, vip_yearly), both with a 7-day free trial and Family Sharing. Nothing is granted on the device: our server verifies Apple's signed transaction (JWS) and grants once; Sandbox purchases verify too. To test: tap the coin balance (Store) and buy with a Sandbox Apple ID. Restore purchases and Redeem a gift code (Apple offer codes) are in Profile > Settings > Account.
@@ -25,7 +25,7 @@ WIDGET
 The Home Screen widget (small, medium, large) shows today's daily picture; a tap opens that puzzle.
 
 REMINDERS
-Daily reminders and event reminders are local notifications, off until the player turns them on; event reminders are promotional and have their own switch.
+After the second picture the app asks once: a switch per kind (daily and event reminders, friend gifts, messages from Carden), then Allow shows the iOS prompt. Each has its own switch in Settings. Shaking the iPhone opens Send feedback (off in Settings > Help).
 
 CONTENT
 Catalogue pictures are public-domain or openly licensed (Wikimedia Commons, Openverse, Flickr, Pixabay, NASA, museums); some are AI-generated or made by us. Each shows its author and licence.

@@ -38,7 +38,13 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   toast via `showToast` (optional `action:` text button, then at least 4 s) in `lib/widgets/ui.dart`; switches are the glass `AppSegmentedControl`, round buttons over photos `PhotoButton`,
   the VIP card family is `lib/widgets/vip.dart`, and counts go through `formatCount` / `compactCount`
   (`lib/core/numbers.dart`). Costs on buttons use `BigButton.cost` / `CostLabel` (currency icon + amount);
-  destructive actions are red and always ask first. A finished pack shows the one done badge
+  destructive actions are red and always ask first. Sheets (owner, 2026-10-18; `lib/widgets/sheets.dart`,
+  docs/native-ui.md "Sheets") stop at `SheetMetrics.topGap` (8% of the screen; a tap above closes them) and close
+  with a drag down at the top of their content (`SheetScrollController`): sheet content is a plain Column the sheet
+  scrolls (`SheetScrollBody`, buttons that must stay in view in its `footer`), never a ListView in a fixed box; no
+  close or delete buttons in a sheet header (delete from the row: swipe, asks first, VoiceOver action); full-height
+  sheets use the router's `SheetPage` (tests `test/sheet_drag_test.dart`, QA `integration_test/sheets_test.dart`).
+  A finished pack shows the one done badge
   `PackDoneBadges` (`lib/features/gallery/pack_progress.dart`: cobalt tick disc, gold star when perfect; no
   green); celebrations use `showConfettiBurst` (`lib/widgets/confetti.dart`), never with Reduce motion. See
   `docs/native-ui.md`.
@@ -92,6 +98,12 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   `CJW_WEB_BUILD` with the site's `app-version.json` (written by `deploy-web.sh`); iPhone compares its
   build number with table `releases` (`tools/dev/publish_release.py`, run by `testflight.sh` once
   Apple has the build out; after a hand-dispatched workflow run it yourself).
+- **No big values in SharedPreferences** (2026-10-18): on the iPhone they are NSUserDefaults, and once an app's
+  settings pass 4 MB iOS stores no further writes. Through build 127 the 5.6 MB catalogue sat there, so nothing
+  else was saved: the welcome pages came back at every launch and the save sync showed this device's own play as
+  "Synced from another device". Large or growing data goes in files (catalogue `Library/Caches/catalog.json`,
+  `lib/data/catalog_cache_io.dart`; the sync's copy of the rows `Application Support/sync/<uid>.rows.json`,
+  `lib/data/sync/device_copy*.dart`); small flags and the sync ops queue stay in preferences.
 - **Versioning**: one version string per App Store cycle; TestFlight builds only bump the build number.
   Details in the apple-release skill. Never bump the version for a TestFlight cut.
 - **Old builds stay in use** (lessons the owner collected, 2026-10-15): assume the client is outdated,
@@ -133,6 +145,10 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   `tools/dev/gift_qa.py`, `integration_test/friend_gifts_test.dart`, `tools/dev/notification_check.sh <udid>`
   (a temporary UI-test target, never committed). Chrome is not installed on this Mac: web QA runs
   `-d web-server` and a headless browser. Parallel agents share the session scratchpad: unique file names.
+  In an agent worktree `secrets/` already exists (the tracked issuer id): link the key files into it one by one, not
+  the folder. `flutter drive` uninstalls the app at the end unless `--keep-app-running`; never keep a `simctl log
+  stream` open during a drive (it kept drive from connecting); qa-run.sh deletes `build/flutter_driver_commands_*.log`
+  (it reached 17 GB and filled the disk).
   Quirks: capture is in-app (host `simctl io screenshot` fires too late); uninstall the app before a
   second same-day run (`xcrun simctl uninstall <udid> com.matejbaco.cardjigsawworld`, the daily gift is
   otherwise already claimed); a stuck "Open in Carden?" prompt needs a simulator reboot; started
@@ -197,8 +213,8 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   Daily month packs are always named "<Month> <Year>": `finalize_pack` keeps it (`daily_month_label`), so never put
   `name`/`description` in a shared daily spec; the app shows that name for an empty or bare "Daily" (`Pack.nameFor`);
   repair with `tools/dev/fix_daily_pack_names.py` (all 24 months of 2023-2024 fixed 2026-10-18).
-- **Catalogue sync** (`docs/catalog-sync.md`; the copy on the device: SharedPreferences on the iPhone, IndexedDB on
-  the web, `CatalogCache`): `lib/state/catalog_sync.dart` (`CatalogSync`, snapshot +
+- **Catalogue sync** (`docs/catalog-sync.md`; the copy on the device: a file on the iPhone (until build 127
+  SharedPreferences, moved once), IndexedDB on the web, `CatalogCache`): `lib/state/catalog_sync.dart` (`CatalogSync`, snapshot +
   delta sync). A launch reads only rows changed since the newest one on the device (about 30 reads); the
   base comes from the daily snapshot file (function `catalog-snapshot`) on first launch and weekly. Never
   read a whole catalogue table on launch (8k+ rows, each one a billed read). The content tool sets
@@ -213,7 +229,10 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   Quests and achievements count only pictures finished after they open (`countsFromProvider`). Locked tabs and
   sections say "N more pictures" and offer Unlock anyway, which always asks "Are you sure?" (Home's first lets the
   player pick what to unlock). Players from before have no record and see everything. Integration suites call
-  `FirstSteps.skipFor(store)`; `integration_test/first_steps_test.dart` plays the path.
+  `FirstSteps.skipFor(store)`; `integration_test/first_steps_test.dart` plays the path. Hints and tips fit 2 lines
+  at 390 pt; locked cards and Home's list use a one-line title and description (`Reveal.opensAfter`,
+  `Reveal.blurb`); `test/hint_lines_test.dart` enforces both. Skip and Start playing save `onboarded` at the tap;
+  `integration_test/welcome_relaunch_test.dart` relaunches for real (`--keep-app-running`, see its header).
 - `lib/state/`: `profile.dart` (`Economy` constants, VIP, piggy 5/picture up to 500, five upgrades of 100
   for 5,000 coins each up to 1,000: `profiles.piggyLevel`, `SyncOp.piggyUpgrade`; Lucky Wheel ×5 spin: 5
   tickets, prize ×5, same odds, `Economy.wheelBigSpin`), `rewards.dart` (level curve
@@ -224,7 +243,9 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   focus/sign-in, conflicts) + `lib/data/sync/` (`ops.dart` intents → atomic operators, `notice.dart`,
   `backend.dart`). Profile and progress changes go through `enqueue(SyncOp...)`; never write totals
   computed on the device. "Synced from another device" alert and "Two boards in progress" sheet live in
-  `lib/features/sync/`.
+  `lib/features/sync/`. The alert reports only another device's or the server's changes (`SyncSource` in
+  `notice.dart`: op ids name their device, each device keeps its newest 10 in `profiles.appliedOps`;
+  `test/sync_first_board_test.dart`).
 - `lib/features/ads/house_ads.dart`: house ads only (no ad network). Break offer every 3rd completion
   or when the last break is 3+ minutes old, closable after 5 s, rewarded 15 s; the offer CTA never
   skips the rewarded countdown.
@@ -286,8 +307,17 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   `ios/Runner/AppDelegate.swift`. Integration runs ask for provisional permission (no prompt to tap);
   `integration_test/quests_reminders_test.dart` checks a reminder really fires. `planEventReminders`
   (Settings > New events): the evening before an event opens, only for notes 5+ days out (lapsed players).
-  They are promotional, so they are off until the player says yes (the switch, or Turn on in the reminder
-  question, whose copy names them; guideline 4.5.4).
+  They are promotional, so they are off until the player says yes (guideline 4.5.4).
+- Notifications (owner, 2026-10-18; `docs/notifications.md`): one question after the 2nd finished picture, at a calm
+  moment on a tab's page (`NotificationPrompt`, `NotificationPromptHost` in app.dart): a switch per kind, all on,
+  Allow then iOS's real prompt, Not now asks nothing; asked once, never on the web, in QA runs or once iOS has
+  answered. It replaced the reminder and gift questions. Settings > Notifications: Daily reminders, New events,
+  Gifts from friends, Messages from Carden (event notes and messages off until the player says yes). Messages from
+  Carden: the push target joins the Messaging topic `carden-messages`; `gifts-off` marks a target kept only for
+  messages, which `/gift/send` leaves out (`api` and `send-gift` have the scopes `subscribers.read`, `targets.read`
+  since 2026-10-18). `tools/dev/inbox.py` pushes every send to the audience's subscribed phones (`--no-push`,
+  `push <id>`); the tap opens `/inbox?message=<id>&from=carden`. QA `integration_test/notification_prompt_test.dart`
+  (reboot the simulator afterwards: an unanswered iOS prompt survives an uninstall).
 - Painting and giant boards: `progress.painting`; `lib/state/giant.dart` (`isGiantPack`,
   `isGiantPuzzleProvider`: packs of category `Giant` get the Large/Huge/Giant/Colossal ladder only, square:
   Cards 10x10 to 17x17 (100-289 cards), Triangles 10x10 to 18x18), `puzzleImageFullProvider` (full-resolution decode), `BoardZoom` in
@@ -369,7 +399,9 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   `blocks` row readable only by the blocker; blocked players are left out of their leaderboard (one
   `Query.notEqual('$id')` each) and their friendship ends; Settings > Blocked players unblocks. Both tables are
   deleted in both directions with an account (`/account/delete` on `api`, `PAIR_TABLES` in `tools/dev/cjw_admin.py`).
-  `lib/state/social.dart` (`PlayerSafety`, `blockedPlayersProvider`), `lib/features/social/player_safety.dart`.
+  `lib/state/social.dart` (`PlayerSafety`, `blockedPlayersProvider`), `lib/features/social/player_safety.dart`;
+  a block closes the profile (`leaveBlockedProfile`, Social when nothing is below). Friends > Share opens the share
+  sheet with the `/add-friend?code=` link (`lib/features/social/friend_invite.dart`; the web copies when it cannot share).
   Offensive names (owner, 2026-10-16): `lib/core/name_filter.dart` (`NameFilter`) refuses them where a name is
   chosen (name alert, sign-up, new profiles) and shows names that fail as "Player" (`Profile.fromRow`, friends,
   blocks, merge), so names set by older builds are covered on 2.0+; links, @handles, e-mail addresses and
@@ -381,7 +413,7 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   `messages.fromUserId/fromName/fromAvatar`, 24 h `expiresAt`). Push: `GiftPush` (`cjw/push`,
   AppDelegate.swift) + `PushRegistration` (`lib/state/push.dart`) register the APNs token as an Appwrite push
   target (provider from the build's embedded profile); Settings > Gifts from friends; a tap opens
-  `/inbox?message=<id>`. Permission is asked after a first gift or friend, never at launch.
+  `/inbox?message=<id>`. Permission comes from the notification question (Notifications, above), never at launch.
 - Inbox (owner, 2026-10-16): Social > Inbox shows messages from the owner. Table `messages` (subject, body,
   `sentAt`, `expiresAt`, rewards, `ctaLabel`/`ctaLink` any app link), row-level permissions only: one player
   (`user:<id>`), an Appwrite label (`label:early`) or everyone (`users`); the app reads whatever it may read.
@@ -393,7 +425,11 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   the version and player id below the message (copies the address when there is no mail app); Send
   feedback writes a `feedback` row (userId, message, appVersion, platform) with no permissions, so only the
   server reads it: `tools/dev/feedback.py` lists and closes them. Deleted with the account (`delete-account`)
-  and with QA players. `lib/features/profile/help.dart`.
+  and with QA players. `lib/features/profile/help.dart`. Shake to send feedback (owner, 2026-10-18; iPhone only): a
+  shake on any screen opens Send feedback over everything (`ShakeFeedbackHost`, `lib/core/shake.dart`, channel
+  `cjw/shake`, `UIWindow.motionEnded` in AppDelegate.swift; the app delegate never gets shakes), Settings > Help switch,
+  on by default. QA `integration_test/shake_feedback_test.dart`; shake a simulator with `xcrun simctl spawn <udid>
+  notifyutil -p com.apple.UIKit.SimulatorShake`.
 - Legal links: `AppLinks` in `lib/core/links.dart` (privacy policy = `docs/privacy-policy.md` on GitHub, the
   same URL as the listing; terms of use = `docs/terms-of-use.md` on GitHub, Carden's own terms on top of
   Apple's standard EULA, which applies, the URL the listing's description gives) in Settings > About, under
