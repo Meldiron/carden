@@ -7,6 +7,7 @@ import 'package:carden/features/daily/daily_reward_sheet.dart';
 import 'package:carden/features/daily/piggy_sheet.dart';
 import 'package:carden/features/daily/wheel_screen.dart';
 import 'package:carden/features/game/unlock_intro.dart';
+import 'package:carden/features/notifications/notification_prompt.dart';
 import 'package:carden/features/profile/avatar_picker.dart';
 import 'package:carden/features/profile/merge_sheet.dart';
 import 'package:carden/features/profile/redeem_code_sheet.dart';
@@ -283,8 +284,9 @@ final hooks = <String, Hook>{
     // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
     c.read(appUpdateProvider.notifier).state = u;
   },
-  // The one-time daily reminder question (real code; needs notification permission "not determined").
-  'reminderOffer': (ctx, c, a) => offerRemindersAfterGift(ctx, c),
+  // The one notification question (real code; Allow asks iOS, so it needs permission "not determined").
+  'notificationPrompt': (ctx, c, a) => showNotificationPrompt(ctx),
+  'reminderOffer': (ctx, c, a) => showNotificationPrompt(ctx),
   // Realistic saves: the same player on both sides (a guest who signs in to their own older account).
   'merge': (ctx, c, a) {
     List<Map<String, dynamic>> solved(int n, int days) => [

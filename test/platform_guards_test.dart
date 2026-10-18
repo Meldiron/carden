@@ -229,8 +229,11 @@ void main() {
       await tester.pumpWidget(await _app(const SettingsScreen(), caps: PlatformCaps.ios));
       await tester.pumpAndSettle();
       expect(find.text('Daily reminders'), findsOneWidget);
-      expect(find.text('Restore purchases'), findsOneWidget);
-      expect(find.text('Redeem a gift code'), findsOneWidget);
+      // Account sits under Notifications, below the first screen.
+      for (final label in ['Redeem a gift code', 'Restore purchases']) {
+        await tester.dragUntilVisible(find.text(label), find.byType(Scrollable).first, const Offset(0, -200));
+        expect(find.text(label), findsOneWidget, reason: label);
+      }
     });
 
     testWidgets('on iOS a pack code opens only through its link; privacy, terms and blocked players are listed', (tester) async {

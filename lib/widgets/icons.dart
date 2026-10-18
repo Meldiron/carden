@@ -107,6 +107,8 @@ class AppIcons {
   static const balloon = CupertinoIcons.sparkles;
   static const image = CupertinoIcons.photo;
   static const mail = CupertinoIcons.envelope_fill;
+  /// Outline, beside the other outline icons of Settings > Notifications (Messages from Carden).
+  static const envelope = CupertinoIcons.envelope;
   static const receipt = CupertinoIcons.doc_plaintext;
 
   // Play together (docs/multiplayer.md).

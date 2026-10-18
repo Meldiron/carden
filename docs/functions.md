@@ -14,12 +14,12 @@ shares everyone's calls, so a player meets a cold start far less often.
 | `POST /account/delete` | `src/account.js` | Account > Delete account | `delete-account` `/delete` |
 | `POST /code/redeem` | `src/code.js` | a pack code, on the web (docs/pack-codes.md) | `redeem-code` `/redeem` |
 | `POST /coop/create`, `/join`, `/leave`, `/remove`, `/end`, `/next` | `src/coop/game.js` (+ `rules.js`) | Play together (docs/multiplayer.md) | `coop-game` `/<action>` |
-| `POST /gift/send` | `src/gift/send.js` (+ `gift.js`) | friend gifts (docs/friend-gifts.md) | `send-gift` `/send` |
+| `POST /gift/send` | `src/gift/send.js` (+ `gift.js`) | friend gifts (docs/friend-gifts.md); the push leaves out targets in the Messaging topic `gifts-off` (docs/notifications.md; needs the scopes `subscribers.read` and `targets.read`, without them every target gets it) | `send-gift` `/send` |
 | `POST /coop/cleanup` | `src/coop/cleanup.js` | the co-op cleanup on demand, for a caller who is not a player (the owner's CLI) | `coop-cleanup` `/run` |
 | `POST /admin/sweep` | `src/sweep/run.js` | the integrity sweep on demand, same callers: `{dryRun = true, full, qaOnly}` (below) | new |
 | `GET /health` | `src/main.js` | `{ok, environment, maxPlayers, appleSignIn}`; the app's warm-up call | every function's `/health` |
 | `GET /<code>`, `/join/<code>`, `/.well-known/apple-app-site-association` | `src/invite/` | a Play together invite's page and link preview at `https://join.carden.page/<code>`, for anyone ("Invite pages", below) | new |
-| schedule `0 * * * *` | `src/coop/cleanup.js`, `src/sweep/run.js` | every hour: the co-op cleanup, then the integrity sweep (an execution with trigger `schedule`, whatever its path) | `coop-cleanup` |
+| schedule `0 * * * *` | `src/coop/cleanup.js`, `src/sweep/run.js`, `src/gift/send.js` | every hour: the co-op cleanup, then the integrity sweep, then inbox pushes older than a day leave Messaging's log (`cleanPushLog`) (an execution with trigger `schedule`, whatever its path) | `coop-cleanup` |
 | event `tablesdb.cjw.tables.blocks.rows.*.create` | `src/sweep/run.js` | a new `blocks` row is checked at once (subscribed as `databases.cjw.tables.blocks.rows.*.create`) | new |
 
 Each module answers as its old function did (same bodies, same status codes), so the app reads the

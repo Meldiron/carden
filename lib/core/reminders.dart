@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'platform.dart';
+import 'qa.dart';
 
 /// Notification permission for the app, as iOS reports it.
 enum ReminderPermission { granted, denied, notDetermined }
@@ -33,6 +34,13 @@ class ReminderChannel {
     if (!supportsNotifications) return false;
     return await _call<bool>('request', {'quiet': quiet}) ?? false;
   }
+
+  /// Integration runs ask quietly ([request] with `quiet`), as nothing can tap the iOS prompt. A
+  /// suite that checks the real prompt (the host takes the screenshot) turns this off.
+  static bool quietInIntegrationRuns = true;
+
+  /// Whether a permission request now should be the quiet one.
+  static bool get quietNow => quietInIntegrationRuns && QaRun.enabled && QaRun.integrationRun;
 
   /// The reminders iOS holds for later, as scheduled (for QA).
   static Future<List<Map<String, Object?>>> pending() => _list('pending');

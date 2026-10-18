@@ -46,7 +46,9 @@ deployed for them (scopes `rows.read`, `rows.write`, `messages.read`, `messages.
    taken back so the sender can try again.
 5. The push, only when the friend has the sender in their friends list too and has had at most 5
    gifts in the last 24 hours (`shouldPush`; later gifts land in the inbox quietly, `pushed: false`):
-   Appwrite Messaging `createPush` to the friend's user (every push target they have),
+   Appwrite Messaging `createPush` to the friend's push targets, without those that turned gift
+   notifications off while keeping Messages from Carden on (topic `gifts-off`, `giftRecipients`;
+   docs/notifications.md),
    title "Anna sent you a gift", body "1 ticket is waiting in your inbox." (or "150 coins are
    waiting..."), data `{ link: '/inbox?message=<id>' }`, sound default. A friend with no device
    registered (web, notifications off) simply gets no push; the inbox has the gift either way.
@@ -105,18 +107,19 @@ No third-party SDK: Apple's push service through Appwrite Messaging.
   TestFlight builds have no embedded profile and use production), and `PushProviders.forEnvironment`
   picks the provider. A token only works with the service of its build.
 - **Registration** (`PushRegistration`, `lib/state/push.dart`): once iOS allows notifications and
-  Settings > Gifts from friends is on, the app asks iOS for the device token
+  Settings > Gifts from friends or Messages from Carden is on (docs/notifications.md: the target then
+  joins the topics those switches ask for), the app asks iOS for the device token
   (`registerForRemoteNotifications`, channel `cjw/push`) and registers it with
   `account.createPushTarget(identifier: token, providerId)`. Appwrite ties the target to the session:
   one per session and provider (a new token updates it), and it is deleted with the session. So a
   sign-in, a switch to another account or a guest save merged into an account (each a new session)
   registers again, as does a token change; a 409 (the token belongs to an earlier session of the same
   player) updates that target. A token can belong to one Appwrite user at a time.
-- **Permission**: shared with the daily reminders. Asked once, in the game first ("Know when a gift
-  arrives?", then the iOS prompt), after the player's first sent gift, first claimed friend gift or
-  first added friend, and only while iOS has never asked; a player who allowed the reminders is
-  registered without a question. Settings > Gifts from friends turns it off (the target is deleted)
-  and on.
+- **Permission**: one for every kind of notification, asked by the notification question after the
+  second finished picture (docs/notifications.md; since 2026-10-18 it replaced the gift question "Know
+  when a gift arrives?" after a first friend or gift, whose moments now only register a player iOS
+  already allows). Settings > Gifts from friends turns it off and on: off deletes the target, or, while
+  Messages from Carden is on, puts it in the topic `gifts-off`.
 - **Taps**: `DailyReminders` stays the notification delegate; remote notifications go to `GiftPush`,
   which hands the link to Dart (`open`, or the link that launched the app on `ready`), and
   `DeepLinks.show` opens it.

@@ -67,14 +67,16 @@ final class GiftNotificationUITests: XCTestCase {
     app.open(URL(string: "carden://settings")!)
     sleep(5)
     shot("gift_10_settings")
-    // Flutter reads the whole Gameplay group as one element; Gifts from friends is its last row,
-    // so its switch is the lowest switch inside the group.
+    // Flutter reads the whole Notifications group as one element. With the reminders off its
+    // switches are, top to bottom: Daily reminders, New events, Gifts from friends, Messages from
+    // Carden (docs/notifications.md), so Gifts from friends is the third.
     let group = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'Gifts from friends'")).firstMatch
     XCTAssertTrue(group.waitForExistence(timeout: 10), "the Gifts from friends row")
-    let toggle = app.switches.allElementsBoundByIndex
+    let switches = app.switches.allElementsBoundByIndex
       .filter { $0.frame.height > 0 && group.frame.contains(CGPoint(x: $0.frame.midX, y: $0.frame.midY)) }
-      .max { $0.frame.midY < $1.frame.midY }
-    try XCTUnwrap(toggle, "the Gifts from friends switch").tap()
+      .sorted { $0.frame.midY < $1.frame.midY }
+    XCTAssertEqual(switches.count, 4, "the four notification switches")
+    try XCTUnwrap(switches.count == 4 ? switches[2] : nil, "the Gifts from friends switch").tap()
 
     // iOS's own prompt.
     let allow = springboard.alerts.firstMatch.buttons["Allow"]

@@ -19,7 +19,7 @@
 // (`shouldPush`; later gifts arrive quietly). A message that cannot be written takes the gift row
 // back, so the sender can try again; a push that fails changes nothing (the inbox still has the gift).
 // Names go through the name filter (offensive words, links, @handles, domains show as "Player").
-import { Client, TablesDB, Messaging, Query, Permission, Role, ID } from 'node-appwrite';
+import { Client, TablesDB, Messaging, Users, Query, Permission, Role, ID } from 'node-appwrite';
 import { DAILY_SENDS, KINDS, LIFETIME_MS, USER_ID, clampOffset, giftCopy, giftDay, giftRowId, messageLink, shouldPush, shownName } from './gift.js';
 
 const DB = process.env.APPWRITE_DATABASE_ID || 'cjw';
@@ -29,7 +29,7 @@ function services(req) {
     .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
     .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
     .setKey(req.headers['x-appwrite-key'] ?? '');
-  return { tables: new TablesDB(client), messaging: new Messaging(client) };
+  return { tables: new TablesDB(client), messaging: new Messaging(client), users: new Users(client) };
 }
 
 const gone = (e) => e?.code === 404;
@@ -61,8 +61,38 @@ async function count(tables, tableId, queries) {
   return page.total;
 }
 
-/// Appwrite keeps every push it sends (title, body, recipient) in its messaging log. Each send
-/// deletes gift pushes older than a day from it, so the log never holds a gift for long; other
+// A device that keeps its push target only for messages from Carden (Settings > Gifts from friends
+// off, Messages from Carden on) subscribes that target to this topic, and the gift push leaves it out
+// (docs/notifications.md). Builds before 2.0.0 (128) never subscribe: every target of theirs gets gifts.
+const GIFTS_OFF_TOPIC = 'gifts-off';
+
+/// Who the gift push goes to: `{ users: [friendId] }` (every push target of the friend), or, when
+/// some of the friend's targets turned gift notifications off, `{ targets }` without them (empty: no
+/// push). Reading the topic needs the scope subscribers.read and the targets targets.read; a topic
+/// that cannot be read sends to every target, as before the topic existed; targets that cannot be
+/// read after a target turned gifts off send nothing.
+export async function giftRecipients({ messaging, users }, friendId, log) {
+  let muted;
+  try {
+    const page = await messaging.listSubscribers({ topicId: GIFTS_OFF_TOPIC, queries: [Query.equal('userId', [friendId]), Query.limit(100)], total: false });
+    muted = new Set(page.subscribers.map((s) => s.targetId));
+  } catch (e) {
+    log(`${GIFTS_OFF_TOPIC} not read (${e.message}): every target`);
+    return { users: [friendId] };
+  }
+  if (muted.size === 0) return { users: [friendId] };
+  try {
+    const page = await users.listTargets({ userId: friendId, queries: [Query.equal('providerType', ['push']), Query.limit(100)], total: false });
+    return { targets: page.targets.filter((t) => t.providerType === 'push' && !muted.has(t.$id)).map((t) => t.$id) };
+  } catch (e) {
+    log(`targets of ${friendId} not read (${e.message}): no push`);
+    return { targets: [] };
+  }
+}
+
+/// Appwrite keeps every push it sends (title, body, recipient) in its messaging log. Each send, and
+/// the hourly run of `api`, deletes inbox pushes (gifts, and messages from Carden sent by
+/// tools/dev/inbox.py) older than a day from it, so the log never holds one for long; other
 /// messages (sent from the console) are left alone.
 async function cleanupPushLog(messaging, log) {
   try {
@@ -70,15 +100,20 @@ async function cleanupPushLog(messaging, log) {
     const page = await messaging.listMessages({ queries: [Query.lessThan('$createdAt', old), Query.orderAsc('$createdAt'), Query.limit(100)], total: false });
     let deleted = 0;
     for (const m of page.messages) {
-      // A gift push is recognised by its link.
+      // An inbox push is recognised by its link.
       if (!String(m.data?.data?.link ?? '').startsWith('/inbox?message=')) continue;
       await messaging.delete({ messageId: m.$id });
       deleted++;
     }
-    if (deleted) log(`push log: ${deleted} old gift push(es) deleted`);
+    if (deleted) log(`push log: ${deleted} old inbox push(es) deleted`);
   } catch (e) {
     log(`push log cleanup: ${e.message}`);
   }
+}
+
+/// The hourly run's part: old inbox pushes leave the messaging log (cleanupPushLog).
+export async function cleanPushLog(req, log) {
+  await cleanupPushLog(services(req).messaging, log);
 }
 
 function parseBody(req) {
@@ -97,7 +132,7 @@ async function handleSend(req, res, log, error) {
   const kind = String(body.kind ?? '');
   if (!USER_ID.test(friendId) || friendId === userId) return res.json({ ok: false, error: 'not-friend' }, 400);
   if (!KINDS[kind]) return res.json({ ok: false, error: 'kind' }, 400);
-  const { tables, messaging } = services(req);
+  const { tables, messaging, users } = services(req);
 
   if (!(await any(tables, 'friends', { userId, friendId }))) return res.json({ ok: false, error: 'not-friend' }, 403);
   const [blockedByMe, blockedMe] = await Promise.all([
@@ -163,19 +198,22 @@ async function handleSend(req, res, log, error) {
     throw e;
   }
 
-  // The friend's iPhones (every push target of the user; the web has none), when they may get one.
+  // The friend's iPhones (their push targets that want gifts; the web has none), when they may get one.
   let pushed = false;
   const [mutual, received] = await Promise.all([
     any(tables, 'friends', { userId: friendId, friendId: userId }),
     count(tables, 'gifts', [Query.equal('recipientId', [friendId]), Query.greaterThan('sentAt', new Date(now.getTime() - LIFETIME_MS).toISOString())]),
   ]);
-  if (shouldPush({ mutual, received })) {
+  const to = shouldPush({ mutual, received }) ? await giftRecipients({ messaging, users }, friendId, log) : null;
+  if (to && to.targets?.length === 0) {
+    log(`no push to ${friendId}: gift notifications are off on every device`);
+  } else if (to) {
     try {
       await messaging.createPush({
         messageId: ID.unique(),
         title: copy.pushTitle,
         body: copy.pushBody,
-        users: [friendId],
+        ...to,
         data: { link: messageLink(messageId) },
         sound: 'default',
       });

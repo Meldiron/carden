@@ -15,6 +15,10 @@ class Missing extends Error {
 let tables;
 let pushes;
 let nextId = 0;
+// Messaging topic `gifts-off` (targetId, userId) and the users' push targets ($id, userId).
+let giftsOff;
+let targets;
+let topicReadable;
 const matches = (row, queries) => queries.every((q) => {
   if (q.equal) return [].concat(q.equal[1]).includes(row[q.equal[0]]);
   if (q.greaterThan) return String(row[q.greaterThan[0]]) > String(q.greaterThan[1]);
@@ -44,6 +48,16 @@ const db = {
 const messaging = {
   async createPush(p) { pushes.push(p); },
   async listMessages() { return { messages: [] }; },
+  async listSubscribers({ topicId, queries }) {
+    if (!topicReadable) throw Object.assign(new Error('missing scope subscribers.read'), { code: 401 });
+    assert.equal(topicId, 'gifts-off');
+    return { subscribers: giftsOff.filter((s) => matches(s, queries)) };
+  },
+};
+const users = {
+  async listTargets({ userId }) {
+    return { targets: targets.filter((t) => t.userId === userId).map((t) => ({ ...t, providerType: 'push' })) };
+  },
 };
 
 mock.module('node-appwrite', {
@@ -51,6 +65,7 @@ mock.module('node-appwrite', {
     Client: class { setEndpoint() { return this; } setProject() { return this; } setKey() { return this; } },
     TablesDB: class { constructor() { return db; } },
     Messaging: class { constructor() { return messaging; } },
+    Users: class { constructor() { return users; } },
     ID: { unique: () => `id${++nextId}` },
     Query: {
       equal: (k, v) => ({ equal: [k, v] }),
@@ -83,6 +98,9 @@ const befriend = (a, b) => tables.friends.set(`${a}:${b}`, { $id: `${a}:${b}`, u
 
 beforeEach(() => {
   pushes = [];
+  giftsOff = [];
+  targets = [];
+  topicReadable = true;
   tables = { friends: new Map(), blocks: new Map(), profiles: new Map(), gifts: new Map(), messages: new Map() };
   for (let i = 0; i < 30; i++) tables.profiles.set(`p${i}`, { $id: `p${i}`, displayName: `Player ${i}` });
   tables.profiles.set('anna', { $id: 'anna', displayName: 'Anna' });
@@ -139,4 +157,40 @@ test('a name with a link shows as Player in the message and the notification', a
   assert.equal(m.fromName, 'Player');
   assert.equal(m.subject, 'Player sent you a gift');
   assert.equal(pushes[0].title, 'Player sent you a gift');
+});
+
+test('a device that turned gift notifications off (and keeps messages from Carden) gets no gift push', async () => {
+  befriend('anna', 'p3');
+  befriend('p3', 'anna');
+  targets = [{ $id: 'phone', userId: 'p3' }, { $id: 'ipad', userId: 'p3' }];
+  // No device turned gifts off: the push goes to the user, every target.
+  await send('anna', 'p3');
+  assert.deepEqual(pushes.at(-1).users, ['p3']);
+  assert.equal(pushes.at(-1).targets, undefined);
+
+  // The iPad turned gifts off: only the phone.
+  giftsOff = [{ targetId: 'ipad', userId: 'p3' }];
+  befriend('p4', 'p3');
+  befriend('p3', 'p4');
+  const one = await send('p4', 'p3');
+  assert.equal(one.body.pushed, true);
+  assert.deepEqual(pushes.at(-1).targets, ['phone']);
+  assert.equal(pushes.at(-1).users, undefined);
+
+  // Both: the gift arrives in the inbox without a push.
+  giftsOff.push({ targetId: 'phone', userId: 'p3' });
+  befriend('p5', 'p3');
+  befriend('p3', 'p5');
+  const none = await send('p5', 'p3');
+  assert.deepEqual([none.body.ok, none.body.pushed], [true, false]);
+  assert.equal(pushes.length, 2);
+});
+
+test('without the scope to read the topic, every target gets the gift push (as before)', async () => {
+  topicReadable = false;
+  befriend('anna', 'p6');
+  befriend('p6', 'anna');
+  const answer = await send('anna', 'p6');
+  assert.equal(answer.body.pushed, true);
+  assert.deepEqual(pushes.at(-1).users, ['p6']);
 });

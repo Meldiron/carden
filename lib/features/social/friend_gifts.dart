@@ -4,12 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/analytics.dart';
 import '../../core/haptics.dart';
 import '../../core/platform.dart';
-import '../../core/reminders.dart';
 import '../../core/theme/tokens.dart';
 import '../../models/models.dart';
 import '../../state/friend_gifts.dart';
 import '../../state/push.dart';
-import '../../state/settings.dart';
 import '../../state/social.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/ui.dart';
@@ -91,32 +89,11 @@ class _SendGiftButtonState extends ConsumerState<SendGiftButton> {
   }
 }
 
-/// Asks once, in the game and before iOS's own prompt, whether the player wants a notification
-/// when a friend sends a gift: after the first gift they send or claim, or the first friend they
-/// add. Only while iOS has never asked (a player who allowed the daily reminders is registered
-/// without a question). "Turn on" goes on to the iOS prompt.
+/// A gift sent or claimed, or a friend added: the moments gift notifications used to be offered in
+/// an alert of their own. The one notification question (lib/features/notifications/
+/// notification_prompt.dart, after the second finished picture) asks about every kind now, so here a
+/// player whom iOS already allows is only registered at once.
 Future<void> offerGiftNotifications(BuildContext context, ProviderContainer container) async {
   if (!container.read(platformCapsProvider).notifications || !supportsNotifications) return;
-  final store = container.read(localStoreProvider);
-  if (store.getText(_offerKey) == 'shown' || !container.read(giftNotificationsProvider)) return;
-  final permission = await ReminderChannel.status();
-  if (permission == ReminderPermission.granted) {
-    await container.read(pushRegistrationProvider).refresh();
-    return;
-  }
-  if (permission != ReminderPermission.notDetermined || !context.mounted) return;
-  await store.setText(_offerKey, 'shown');
-  if (!context.mounted) return;
-  final yes = await showAppAlert(
-    context,
-    title: 'Know when a gift arrives?',
-    message: 'A notification when a friend sends you a gift, so you can claim it within the day. You can turn it off in Settings.',
-    confirmLabel: 'Turn on',
-    cancelLabel: 'Not now',
-  );
-  if (!yes) return;
-  final granted = await container.read(pushRegistrationProvider).enable();
-  if (granted && context.mounted) showToast(context, 'Gift notifications on', icon: AppIcons.bellFill);
+  await container.read(pushRegistrationProvider).refresh();
 }
-
-const _offerKey = 'giftNotificationsOffer';
