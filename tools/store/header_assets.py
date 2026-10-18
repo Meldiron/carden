@@ -484,16 +484,24 @@ class Placer:
             if not path.exists():
                 log(f"  {ptype}: {path.relative_to(ROOT)} is missing; run compose first")
                 continue
-            reference = f"Carden {slug} {name}"
-            have = existing.get(ptype)
-            if have:
-                placement, image = have
-                if image and ap.attr(image, "referenceName") == reference and ap.attr(image, "fileSize") == path.stat().st_size:
-                    log(f"  {ptype}: {reference} already placed ({ap.attr(placement, 'state')})")
-                    continue
+            # The asset library refuses a reference name it already holds, so each file's name carries a
+            # short hash of its content: a changed file is a new image, an unchanged one is recognised.
+            reference = f"Carden {slug} {name} {ap.md5_of(path)[:8]}"
+            placement, image = existing.get(ptype) or (None, None)
+            if image and (ap.attr(image, "referenceName") == reference or (  # names from before the hash
+                    ap.attr(image, "referenceName") == f"Carden {slug} {name}" and ap.attr(image, "fileSize") == path.stat().st_size)):
+                log(f"  {ptype}: {ap.attr(image, 'referenceName')} already placed ({ap.attr(placement, 'state')})")
+                continue
+            # Upload first: a file Apple refuses never leaves the page without art.
+            img = self.upload_image(path, reference, f"carden-{slug}-{path.name}")
+            if placement:
                 log(f"  {ptype}: replacing {ap.attr(image, 'referenceName') if image else 'an image'}")
                 self.c.request("DELETE", f"/v1/appAssetLibraryPlacements/{placement['id']}")
-            img = self.upload_image(path, reference, f"carden-{slug}-{path.name}")
+                if image and not self.dry:
+                    try:  # the old image is placed nowhere now; keep the library tidy
+                        self.c.request("DELETE", f"/v1/appAssetLibraryImages/{image['id']}")
+                    except ap.ApiError as err:
+                        log(f"    old image {ap.attr(image, 'referenceName')} kept in the library ({err.status})")
             log(f"  {ptype}: placing {reference}")
             self.c.create("appAssetLibraryPlacements", {"placementType": ptype, "placementGroup": "DEFAULT_PROFILE"},
                           {"image": ap.rel("appAssetLibraryImages", img.get("id", "DRY-image")),

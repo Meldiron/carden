@@ -209,7 +209,10 @@ Commands:
 
 The default page uses the editable App Store version (2.0.0). A custom page uses its draft version. A
 changed file replaces its placement; an unchanged one is kept. The header placed is the 16:9 universal
-file unless you pass `--header 21x9`. `upload` submits nothing.
+file unless you pass `--header 21x9`. `upload` submits nothing. Each image's reference name ends in a short hash
+of its file (the library refuses a name it already holds), and a new file is uploaded before the old placement goes,
+so a refused file never leaves a page without art. Art on the default page is locked while 2.0.0 sits in a review
+draft: take the version item out of the draft, upload, then `asc_publish.py draft --events` puts it back.
 
 Review: the art is reviewed with the version or page it is placed on. Before the app's first approval it
 can only go with that first version. After that it can also be submitted on its own from the Asset

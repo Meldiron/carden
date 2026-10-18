@@ -1,4 +1,4 @@
-Thank you for reviewing Carden (Card Jigsaw World in earlier TestFlight builds).
+Thank you for reviewing Carden.
 
 ACCOUNTS
 No login is needed: the first launch creates an anonymous guest on our backend (Appwrite, EU). Sign in with Apple and email are optional and keep the same progress (Profile > Settings > Account). Delete account: Profile > Settings > Manage account > Delete account.
@@ -7,7 +7,7 @@ GUIDED START
 New players go from the welcome pages into a first 9-card puzzle, then a simple Home; the rest opens as pictures are solved (Library 3, Quests 20, Social 50 and others). To open everything: Profile > Settings > Guided start off, or "Unlock anyway" on Home. The Store is always open from the coin balance.
 
 PLAY TOGETHER
-A live shared board for up to 5 people, who join by an invite link. Device A: open a picture, start the board, tap Pause > Play together; the share sheet opens with a link (play.carden.page/join/...). Open it on device B: the app if installed (universal link), else Safari (the web version, no account needed; a Mac works too). Both move cards on the same board, each player in their own colour. The players button at the top lists everyone: the host can Remove a player or End game for everyone, a guest can Leave game. Only people with the link can join: no matchmaking, no strangers, no chat (only card moves are shared). A player's page has Report and Block; blocked players cannot join each other's games. My Puzzles photos cannot be shared.
+A live shared board for up to 5 people, who join by an invite link. Device A: open a picture, start the board, tap Pause > Play together; the share sheet opens with a link (join.carden.page/...). Open it on device B: the app if installed (universal link), else Safari (the web version, no account needed; a Mac works too). Both move cards on the same board, each player in their own colour. The players button at the top lists everyone: the host can Remove a player or End game for everyone, a guest can Leave game. Only people with the link can join: no matchmaking, no strangers, no chat (only card moves are shared). A player's page has Report and Block; blocked players cannot join each other's games. My Puzzles photos cannot be shared.
 
 FRIEND GIFTS
 Friends are added by friend code (Social > Friends). On a friend's page, Send a gift sends 1 ticket or 150 coins, free for the sender, once a day per friend; it arrives in the friend's Social > Inbox and expires after 24 hours. Gifts cannot be bought or traded. Gift notifications are the app's only push notifications; permission is asked after a first gift or friend, and Settings > Gifts from friends turns them off.
@@ -20,6 +20,9 @@ A spin costs 1 ticket and pays one random prize: coins, Peeks, Hints or Magic (Ã
 
 ADS AND ANALYTICS
 No ad network and no third-party SDK for ads, analytics or tracking. Break cards and the "rewarded video" are closable house ads for the game's own store. Usage analytics go only to our own backend (Appwrite Analytics), are not used for tracking, and can be turned off in Settings > Privacy > Share usage data.
+
+WIDGET
+The Home Screen widget (small, medium, large) shows today's daily picture; a tap opens that puzzle.
 
 REMINDERS
 Daily reminders and event reminders are local notifications, off until the player turns them on; event reminders are promotional and have their own switch.
