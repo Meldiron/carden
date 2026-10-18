@@ -2,6 +2,7 @@ import Flutter
 import StoreKit
 import UIKit
 import UserNotifications
+import WidgetKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -12,6 +13,7 @@ import UserNotifications
     let launched = super.application(application, didFinishLaunchingWithOptions: launchOptions)
     // Set before launch finishes so the tap that opened the app is delivered.
     UNUserNotificationCenter.current().delegate = DailyReminders.shared
+    DailyWidgetRefresh.observe()
     return launched
   }
 
@@ -36,6 +38,28 @@ import UserNotifications
   override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
     GiftPush.shared.failed(error)
+  }
+}
+
+/// Asks the Home Screen widget (ios/DailyWidget) for today's picture again when the game comes to the
+/// front, at most once an hour, so a widget that could not load it (offline at midnight, or a build
+/// before 127 whose picture was too large to show) shows it as soon as the player opens the game.
+/// Reloads asked while the app is in front do not use the widget's daily budget; with no widget on
+/// the Home Screen nothing runs.
+enum DailyWidgetRefresh {
+  private static let key = "dailyWidgetReloadedAt"
+
+  static func observe() {
+    NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in
+      reloadIfDue()
+    }
+  }
+
+  static func reloadIfDue(now: Date = Date()) {
+    let defaults = UserDefaults.standard
+    guard now.timeIntervalSince1970 - defaults.double(forKey: key) >= 3600 else { return }
+    defaults.set(now.timeIntervalSince1970, forKey: key)
+    WidgetCenter.shared.reloadTimelines(ofKind: "DailyWidget")
   }
 }
 

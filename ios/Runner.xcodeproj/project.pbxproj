@@ -12,6 +12,7 @@
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
 		3BE81ACC3C3F8DDC34D60051 /* DailyWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75BDDAAF6B1FB00771367CB2 /* DailyWidget.swift */; };
+		D2E3F4A5B6C7D8E9F0A1B2C3 /* DailyPicture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1D2E3F4A5B6C7D8E9F0A1B2 /* DailyPicture.swift */; };
 		512D299FFBFCD1DF8F73C827 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ACE2D262DCCFDBE6E48B9474 /* Foundation.framework */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
@@ -76,6 +77,7 @@
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		75BDDAAF6B1FB00771367CB2 /* DailyWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyWidget.swift; sourceTree = "<group>"; };
+		C1D2E3F4A5B6C7D8E9F0A1B2 /* DailyPicture.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPicture.swift; sourceTree = "<group>"; };
 		7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
@@ -184,6 +186,7 @@
 			isa = PBXGroup;
 			children = (
 				75BDDAAF6B1FB00771367CB2 /* DailyWidget.swift */,
+				C1D2E3F4A5B6C7D8E9F0A1B2 /* DailyPicture.swift */,
 				3467547CF2BF60B763C95330 /* Info.plist */,
 			);
 			name = DailyWidget;
@@ -373,6 +376,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3BE81ACC3C3F8DDC34D60051 /* DailyWidget.swift in Sources */,
+				D2E3F4A5B6C7D8E9F0A1B2C3 /* DailyPicture.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
