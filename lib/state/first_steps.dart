@@ -133,7 +133,9 @@ class FirstStepsNotifier extends Notifier<FirstSteps> {
   /// "new" dots for tabs they had.
   void setGuided(bool on) {
     AppAnalytics.event('settings_changed', {'setting': 'guided_start', 'value': on});
-    final solved = ref.read(countedSolvesProvider);
+    // Counted from the rows, not through countedSolvesProvider: that provider watches this one, and
+    // reading it from here is a circular dependency (debug builds throw).
+    final solved = countedFinishes(state, ref.read(progressProvider).value ?? const {}).length;
     final reached = [for (final r in Reveal.values) if (solved >= r.solves && r.tab != null) r];
     _save(state.copyWith(
       guided: on || state.guided,
@@ -215,9 +217,9 @@ final solvedCountProvider = Provider<int>((ref) {
 /// returning account finished before onboarding here; of the pictures played after onboarding and
 /// before the player first reached Home (the first board, and any played on from its finish), only
 /// the first; every picture from reaching Home on. All of them for a player without the guided start.
-final countedFinishesProvider = Provider<List<DateTime>>((ref) {
-  final steps = ref.watch(firstStepsProvider);
-  final rows = ref.watch(progressProvider).value ?? const <String, PuzzleProgress>{};
+final countedFinishesProvider = Provider<List<DateTime>>((ref) => countedFinishes(ref.watch(firstStepsProvider), ref.watch(progressProvider).value ?? const {}));
+
+List<DateTime> countedFinishes(FirstSteps steps, Map<String, PuzzleProgress> rows) {
   final all = [for (final p in rows.values) if (p.completed) p.completedAt ?? _epoch]..sort();
   if (!steps.guided) return all;
   final start = steps.startedAt ?? _epoch, home = steps.homeAt;
@@ -226,7 +228,7 @@ final countedFinishesProvider = Provider<List<DateTime>>((ref) {
     ...all.where((t) => !t.isBefore(start) && (home == null || t.isBefore(home))).take(1),
     if (home != null) ...all.where((t) => !t.isBefore(home) && !t.isBefore(start)),
   ];
-});
+}
 
 /// How many pictures count toward what opens ([countedFinishesProvider]).
 final countedSolvesProvider = Provider<int>((ref) => ref.watch(countedFinishesProvider).length);

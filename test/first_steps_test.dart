@@ -117,15 +117,6 @@ void main() {
     expect(c.read(upcomingRevealsProvider), isEmpty);
   });
 
-  test('Settings > Guided start back on keeps what the player reached, with no "new" dots', () async {
-    final c = await container(prefs: {'firstSteps': '{"guided":true,"showEverything":true}'}, solved: 22);
-    c.read(firstStepsProvider.notifier).setGuided(true);
-    expect(c.read(firstStepsProvider).calm, isTrue);
-    expect(c.read(revealsProvider).containsAll({Reveal.daily, Reveal.streak, Reveal.wheel, Reveal.quests}), isTrue);
-    expect(c.read(revealsProvider).contains(Reveal.achievements), isFalse);
-    expect(c.read(newTabsProvider), isEmpty);
-  });
-
   test('a tab that opens by playing keeps a dot until it is visited', () async {
     final c = await container(prefs: guided, solved: 20);
     expect(c.read(newTabsProvider), {Reveal.library.tab, Reveal.quests.tab}, reason: 'neither was visited yet');
@@ -194,6 +185,18 @@ void main() {
       final back = await with_(rows(30), prefs: {'firstSteps': '{"guided":true,"startedAt":"$late"}'});
       expect(back.read(countedSolvesProvider), 30);
       expect(back.read(revealsProvider).contains(Reveal.piggy), isTrue);
+    });
+
+    test('Settings > Guided start back on keeps what the player reached, with no "new" dots', () async {
+      // The real count, not an override: setGuided once read countedSolvesProvider, which watches
+      // firstStepsProvider, a circular dependency that threw in debug builds.
+      final c = await with_(rows(22), prefs: {'firstSteps': '{"guided":true,"showEverything":true,"startedAt":"2026-10-01T00:00:00Z","homeAt":"2026-10-01T00:00:01Z"}'});
+      expect(c.read(countedSolvesProvider), 22);
+      c.read(firstStepsProvider.notifier).setGuided(true);
+      expect(c.read(firstStepsProvider).calm, isTrue);
+      expect(c.read(revealsProvider).containsAll({Reveal.daily, Reveal.streak, Reveal.wheel, Reveal.quests}), isTrue);
+      expect(c.read(revealsProvider).contains(Reveal.achievements), isFalse);
+      expect(c.read(newTabsProvider), isEmpty);
     });
 
     test('reaching Home starts the count once', () async {

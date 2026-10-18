@@ -40,6 +40,9 @@ purge() {
   purged=1
   # A closed output pipe must not kill the script halfway through the purge.
   trap '' PIPE
+  # flutter drive logs every driver command, screenshots included, to build/ and never trims the
+  # file; it reached 17 GB and filled the disk (2026-10-18).
+  rm -f build/flutter_driver_commands_*.log
   if [ -n "${QA_KEEP:-}" ]; then
     say "kept the test players of $RUN_ID (QA_KEEP); purge later with tools/dev/purge_test_players.py purge --apply"
     return
