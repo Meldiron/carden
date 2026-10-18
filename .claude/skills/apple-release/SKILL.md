@@ -79,6 +79,9 @@ On top of the TestFlight checks below (the guideline review of 2026-10-15 found 
 4. Attach the final build (`asc_publish.py release --build N`) and submit the products and the VIP
    plans together with the version.
 5. Do not ship a newer TestFlight build while the version is in review.
+6. Take any In-App Event whose publish date has passed out of the draft first (DELETE its
+   `reviewSubmissionItems/{id}`; the event stays a draft). Apple refuses the whole submission with 409
+   `appEvents with id ... is not in valid state` otherwise (2.0.0, 2026-10-18: UN Day).
 
 ## Before every upload
 1. `git status` clean, main pushed, analyzer and tests green, QA runs silent and flagged
