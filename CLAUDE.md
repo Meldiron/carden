@@ -42,6 +42,9 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   `PackDoneBadges` (`lib/features/gallery/pack_progress.dart`: cobalt tick disc, gold star when perfect; no
   green); celebrations use `showConfettiBurst` (`lib/widgets/confetti.dart`), never with Reduce motion. See
   `docs/native-ui.md`.
+  Haptics only through `Haptics` (`lib/core/haptics.dart`): selection, light, medium or success, never heavy; one
+  gate (70 ms apart, 10 a second), tick runs of at most 5 (`Haptics.run`); Settings > Haptics turns them off, none
+  on the web. Map in `docs/native-ui.md`, "Haptics".
 - **Onboarding is instant** (owner, 2026-10-15): every picture the welcome pages show is bundled in
   `assets/welcome/` (PD/CC0 catalogue picks), never loaded from Storage.
 - **Copy**: calm, precise, short; terms and CTA style in `docs/copy-guide.md`. The `/events` tab is
@@ -170,7 +173,11 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   progress).
 - A board dealt on the device opens on its whole picture first, then the cards glide to their dealt places
   (`GameState.previewing`; tap to skip; not a move, not a Peek; Reduce motion cross-fades); resumed and
-  Play together boards skip it; integration suites set `GameScreen.dealPreview = false`. A tap ends Peek.
+  Play together boards skip it; integration suites set `GameScreen.dealPreview = false`. A tap ends Peek. Its time
+  counts only while the board is in view (app in front, game page on top with its fade-in done, nothing over it:
+  `_inView` in game_screen.dart, `GameController.holdPreview`); a picture that arrives while the app is away waits and
+  shows whole for the full time on return (`test/deal_preview_screen_test.dart`; QA `integration_test/deal_next_test.dart`,
+  Next puzzle with the picture 0-6 s late via `debugPictureDelay`).
 - **Twin cards** (owner, 2026-10-17; `docs/twins.md`): cards that look the same are twins (CIEDE2000 per
   ~4 px box and outline strip: mean ≤ 1.0, 95% ≤ 1.8, max ≤ 3.0, specks ≤ 1.6 L or 3× grain; near black and
   near white differences count less, `TwinFinder.seen`, specks in the dark over 3x3 pixels, limit 3.4; on dark
