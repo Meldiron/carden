@@ -3,62 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/haptics.dart';
-import '../../core/platform.dart';
-import '../../core/reminders.dart';
 import '../../core/sfx.dart';
 import '../../core/a11y.dart';
 import '../../core/analytics.dart';
 import '../../core/theme/tokens.dart';
 import '../../state/daily_gift.dart';
 import '../../state/profile.dart';
-import '../../state/reminders.dart';
 import '../../state/settings.dart';
 import '../../widgets/confetti.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/ui.dart';
 
-/// The daily gift sheet. When the player claimed a gift in it, the sheet may
-/// be followed by the one-time reminder question ([offerRemindersAfterGift]).
-Future<void> showDailyRewardSheet(BuildContext context) async {
-  final container = ProviderScope.containerOf(context, listen: false);
-  final before = container.read(localStoreProvider).giftClaimDays;
-  await showAppSheet(context, builder: (_) => const DailyRewardSheet());
-  if (!context.mounted || container.read(localStoreProvider).giftClaimDays == before) return;
-  await offerRemindersAfterGift(context, container);
-}
-
-/// Asks once, in the game, whether the player wants a daily reminder, before
-/// iOS shows its own permission prompt (see [shouldOfferReminders]). "Turn on"
-/// goes on to the iOS prompt; either answer closes the question for good.
-Future<void> offerRemindersAfterGift(BuildContext context, ProviderContainer container) async {
-  if (!container.read(platformCapsProvider).notifications) return;
-  final store = container.read(localStoreProvider);
-  final settings = container.read(settingsProvider);
-  final profile = container.read(profileProvider).value;
-  final permission = await ReminderChannel.status();
-  final offer = shouldOfferReminders(
-    giftDays: store.giftClaimDays,
-    streak: profile?.streak ?? 0,
-    remindersOn: settings.reminders,
-    offerShown: store.reminderOfferShown,
-    permission: permission,
-  );
-  if (!offer || !context.mounted) return;
-  store.reminderOfferShown = true;
-  final time = TimeOfDay(hour: settings.reminderMinutes ~/ 60, minute: settings.reminderMinutes % 60).format(context);
-  final yes = await showAppAlert(
-    context,
-    title: 'Get a daily reminder?',
-    message: 'One notification a day with the daily puzzle at $time, and one the evening before a new event opens. You can change or turn off either in Settings.',
-    confirmLabel: 'Turn on',
-    cancelLabel: 'Not now',
-  );
-  if (!yes) return;
-  // The question named event notes too, so Turn on is the explicit yes to them.
-  container.read(eventRemindersProvider.notifier).set(true);
-  final granted = await container.read(remindersProvider).enable();
-  if (granted && context.mounted) showToast(context, 'Daily reminder at $time', icon: AppIcons.bellFill);
-}
+/// The daily gift sheet. It used to be followed by a reminder question on the second day with a
+/// gift; the one notification question (lib/features/notifications/notification_prompt.dart, after
+/// the second finished picture) asks about reminders now.
+Future<void> showDailyRewardSheet(BuildContext context) => showAppSheet(context, builder: (_) => const DailyRewardSheet());
 
 /// The daily gift sheet (107 B): the week as a list, every day with its full
 /// gift, today's row larger than the rest. After missed days a lost streak can

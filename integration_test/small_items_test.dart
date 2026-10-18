@@ -1,5 +1,6 @@
-// Small items of 2026-10-14 on the real app (live Appwrite backend): the reminder question
-// after a second-day daily gift, tomorrow's blurred daily puzzle on Home, the Lucky Wheel
+// Small items of 2026-10-14 on the real app (live Appwrite backend): a second-day daily gift with no
+// question after it (since 2026-10-18 the one notification question comes after the second picture:
+// integration_test/notification_prompt_test.dart), tomorrow's blurred daily puzzle on Home, the Lucky Wheel
 // odds, Library search over picture titles, the New filter, and Settings (Rate, version).
 //
 // Run: tools/dev/qa-run.sh drive --driver=test_driver/integration_test.dart \
@@ -110,18 +111,15 @@ void main() {
     await tapText(tester, 'Start playing', ms: 5000);
     await settle(tester, 5000);
 
-    // Daily gift on the second day, then the one-time reminder question.
+    // Daily gift on the second day: no reminder question after it any more.
     await tapText(tester, 'Claim', ms: 1500);
     await tester.tap(find.textContaining('Claim day'), warnIfMissed: false);
     await settle(tester, 1500);
     await tester.tapAt(const Offset(200, 60));
     await settle(tester, 2500);
-    expect(find.text('Get a daily reminder?'), findsOneWidget);
-    await shot(tester, 'si_01_reminder_offer');
-    await tapText(tester, 'Turn on', ms: 2500);
-    expect(container(tester).read(settingsProvider).reminders, isTrue);
-    expect(store.reminderOfferShown, isTrue);
-    await shot(tester, 'si_02_reminder_on');
+    expect(find.text('Get a daily reminder?'), findsNothing);
+    expect(container(tester).read(settingsProvider).reminders, isFalse);
+    await shot(tester, 'si_01_after_daily_gift');
 
     // Today's daily puzzle, solved: Home's Today card says when the new picture comes.
     expect(find.textContaining('New picture in'), findsNothing);

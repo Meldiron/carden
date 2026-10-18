@@ -108,6 +108,7 @@ test('a scheduled execution runs the co-op cleanup and the integrity sweep, what
   assert.deepEqual(r.body.coop, { ended: 0, deleted: 0, oldBoards: 0, teams: 0 });
   assert.deepEqual([r.body.sweep.apply, r.body.sweep.counts], [false, {}], 'without SWEEP_APPLY the sweep only reports');
   assert.ok(calls.includes('listRows') && calls.includes('list') && calls.includes('listFiles'), 'it read the games, the teams, the rows and the photos');
+  assert.ok(calls.includes('listMessages'), 'it looked for inbox pushes older than a day in the push log');
 });
 
 test('a new blocks row is checked by its create event; other events are ignored', async () => {

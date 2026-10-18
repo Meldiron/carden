@@ -13,6 +13,7 @@ import 'core/sfx.dart';
 import 'core/theme/app_theme.dart';
 import 'features/coop/coop_host.dart';
 import 'features/links/deep_links.dart';
+import 'features/notifications/notification_prompt.dart';
 import 'features/store/purchase_host.dart';
 import 'features/sync/sync_host.dart';
 import 'features/update/update_host.dart';
@@ -103,10 +104,11 @@ class _CardenAppState extends ConsumerState<CardenApp> with WidgetsBindingObserv
     });
   }
 
-  /// Gift notifications (docs/friend-gifts.md): this iPhone's token becomes a push target of the
-  /// player once notifications are allowed; a tapped notification opens its message in the inbox,
-  /// and one that arrives while the game is open refreshes the inbox and shows a toast instead of
-  /// a banner. After the sign-in: the target belongs to the session.
+  /// Gift notifications and messages from Carden (docs/notifications.md): this iPhone's token
+  /// becomes a push target of the player once notifications are allowed; a tapped notification
+  /// opens its message in the inbox, and one that arrives while the game is open refreshes the
+  /// inbox and shows a toast instead of a banner. After the sign-in: the target belongs to the
+  /// session.
   void _setUpPush() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
@@ -115,7 +117,7 @@ class _CardenAppState extends ConsumerState<CardenApp> with WidgetsBindingObserv
       if (!mounted) return;
       await ref.read(pushRegistrationProvider).start(
         onOpen: (link) {
-          AppAnalytics.event('push_opened', {'kind': 'gift'});
+          AppAnalytics.event('push_opened', {'kind': pushKindOf(link)});
           final parsed = AppLink.parse(Uri.parse(link));
           if (mounted && parsed != null) ref.read(deepLinksProvider).show(parsed);
         },
@@ -123,7 +125,7 @@ class _CardenAppState extends ConsumerState<CardenApp> with WidgetsBindingObserv
           if (!mounted) return;
           ref.invalidate(inboxMessagesProvider);
           final ctx = rootNavigatorKey.currentContext;
-          if (ctx != null && ctx.mounted && note.title.isNotEmpty) showToast(ctx, note.title, icon: AppIcons.gift);
+          if (ctx != null && ctx.mounted && note.title.isNotEmpty) showToast(ctx, note.title, icon: pushKindOf(note.link) == 'message' ? AppIcons.envelope : AppIcons.gift);
         },
       );
     });
@@ -197,7 +199,7 @@ class _CardenAppState extends ConsumerState<CardenApp> with WidgetsBindingObserv
         final host = Scaffold(
           resizeToAvoidBottomInset: false,
           backgroundColor: Colors.transparent,
-          body: ScaffoldMessenger(child: UpdateHost(child: SyncHost(child: PurchaseHost(child: CoopHost(child: child!))))),
+          body: ScaffoldMessenger(child: UpdateHost(child: SyncHost(child: PurchaseHost(child: CoopHost(child: NotificationPromptHost(child: child!)))))),
         );
         // Text follows the system size up to iOS "xxxLarge" (1.35), unless Settings > Accessibility
         // picks Large (150%) or Largest (200%); bars cap themselves at 1.2 (ChromeText).

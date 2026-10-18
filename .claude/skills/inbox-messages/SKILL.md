@@ -37,6 +37,15 @@ claimed and deleted state is their own, also for shared rows.
 - What the player did lives in their profile: `profiles.inbox` holds `seen:<id>`, `claimed:<id>`
   and `deleted:<id>`, written by `SyncOp.inbox` (lib/data/sync/ops.dart). A gift is paid once per
   message on every device (ledger reason `inbox:<id>`).
+- **Notification**: players who turned on Settings > Messages from Carden (or Allow in the
+  notification question; off by default, it can carry offers) have their iPhone's push target in the
+  Appwrite Messaging topic `carden-messages`. A send pushes the message to its audience's subscribed
+  devices: everyone (`--all`) through the topic, one player or a label to only their subscribed
+  targets. Title = subject, text = the body cut near 178 characters, the tap opens the message
+  (`/inbox?message=<id>&from=carden`). It prints `pushed to N device(s)`, the dry run how many it would
+  reach. `--no-push` sends the message without it; `push <messageId> --yes` sends it later. A message
+  shown later (`--at`) is pushed then; builds before 2.0.0 (128) never get one. Details:
+  docs/notifications.md.
 - The app reads the rows it may read on launch, on resume and when the inbox is pulled down
   (lib/state/inbox.dart). An unopened message puts a dot on the Social tab and on the Inbox
   segment, also while they are shown, until it is opened. A gift card in the message explains
@@ -56,6 +65,8 @@ python3 tools/dev/inbox.py send --name "Brave Otter" ...   one player by display
 python3 tools/dev/inbox.py send --label early ...          players with the label (one shared row)
 python3 tools/dev/inbox.py send --all ...                  every player, now and later (one shared row)
 python3 tools/dev/inbox.py send --qa ...                   the newest QA guest (to check a message)
+python3 tools/dev/inbox.py send ... --no-push              the inbox only, no notification
+python3 tools/dev/inbox.py push <messageId> [--yes]        the notification for a message sent with --no-push (or again)
 python3 tools/dev/inbox.py list                            every message and its audience
 python3 tools/dev/inbox.py list --to <userId>              what that player sees, with its state (seen, claimed, deleted, expired)
 python3 tools/dev/inbox.py labels <userId> [--add L] [--remove L] --yes   a player's labels
@@ -63,7 +74,9 @@ python3 tools/dev/inbox.py expire <messageId> --yes        ends a message now
 python3 tools/dev/inbox.py delete <messageId> [...] --yes  removes rows
 ```
 
-Without `--yes` every command is a dry run that prints what it would do. Gift flags: `--coins`,
+Without `--yes` every command is a dry run that prints what it would do. The push goes through the
+Appwrite CLI signed in as the owner (`appwrite login`; the API keys in secrets/ have no messaging
+scopes): without it a send still writes the message and says the push was not sent. Gift flags: `--coins`,
 `--tickets`, `--hints`, `--peeks`, `--magics`; above 10,000 coins, 30 tickets or hints, 50 Peeks
 or 20 Magic it refuses unless `--force`. Find a player's user id with `tools/dev/purge_test_players.py
 audit` (QA players), the Appwrite console (Auth), a report or feedback row, or `--name`.
@@ -100,6 +113,8 @@ personal note.
 
 Run a QA build (`tools/dev/qa-run.sh run -d <simulator or chrome>`), then
 `python3 tools/dev/inbox.py send --qa --subject ... --yes`, pull down the inbox (or bring the app to
-the front) and open it. The QA purge at the end removes the guest and its own messages; delete any
+the front) and open it. For the notification, turn on Settings > Messages from Carden in that run
+first (allow notifications), put the game in the background, then send: Apple's sandbox delivers to
+a simulator on Apple silicon and the send prints `pushed to 1 device(s)`. The QA purge at the end removes the guest and its own messages; delete any
 label or everyone messages made for the check. `integration_test/inbox_test.dart` plays the whole
 path, including a label the guest carries and one it does not.

@@ -2,7 +2,7 @@
 
 Carden ("the app", formerly Card Jigsaw World, on iPhone and at play.carden.page) is made by Matej
 Baco. This policy explains what the app stores, where, who can see it, and how to delete it.
-Last updated 17 October 2026.
+Last updated 18 October 2026.
 
 ## The short version
 
@@ -32,14 +32,14 @@ All game data is stored in an [Appwrite](https://appwrite.io) project hosted in 
 | Reports you send about a player (who, the name they had and the reason) | So we can act on offensive names and cheating | When you report someone |
 | Messages we send you in Social > Inbox (subject, text, an optional gift and link), and which ones you opened, claimed or deleted | So we can tell you about the game, say thank you or send a gift | When we send a message |
 | Gifts between friends: who sent a gift to whom, on which day, what it was, and the Inbox message it became (with the sender's display name and avatar) | So a friend can claim your gift, and each friend gets at most one gift from you a day | When you send a gift |
-| Push token of your iPhone (a device address from Apple), linked to your account and sign-in session | To send you a notification when a friend sends you a gift | When you allow notifications and gift notifications are on (Settings > Gifts from friends) |
+| Push token of your iPhone (a device address from Apple), linked to your account and sign-in session, and whether it should get messages from Carden or no gift notifications | To send you a notification when a friend sends you a gift, and when we send you a message if you turned that on | When you allow notifications and Settings > Gifts from friends or Messages from Carden is on |
 | Feedback you send from Settings (your message, your account id, the app version and whether it came from iPhone or the web) | So we can read your ideas and problems | When you send feedback |
 | Pack codes you redeem (on the web version) | So a code opens its pack once per account | When you redeem a code |
 | Purchase records: Apple transaction ids, product, date, what was granted, and Apple's per-account app identifier used for Family Sharing | To grant purchases once, restore them, share VIP with your family and handle refunds and renewals | When you buy something |
 | Photos you upload in My Puzzles | To play them as puzzles | When you upload them. They are private to your account and are never shown to other players |
-| Usage data: the screens you open, the app going to the background and back (with the time spent in it), and what you do in the game, such as a puzzle started or finished (mode, board size, stars, moves, time), a tool used, a pack opened or unlocked, a reward claimed, a gift to a friend sent or claimed (whether it was a ticket or coins, never who), your answer to the notification question and a gift notification opened, a purchase started or completed (the product), and changes to Settings > Accessibility. With each event, Appwrite records the approximate location of the connection (country, region and city, from the IP address) and the device, system or browser type | To see which parts of the game are used and where players get stuck, so we can improve it. See "Usage data" below | While you play, unless Share usage data is off |
+| Usage data: the screens you open, the app going to the background and back (with the time spent in it), and what you do in the game, such as a puzzle started or finished (mode, board size, stars, moves, time), a tool used, a pack opened or unlocked, a reward claimed, a gift to a friend sent or claimed (whether it was a ticket or coins, never who), your answer to the notification question (which kinds you chose, never anything else) and a notification opened (a gift or a message from Carden), a purchase started or completed (the product), and changes to Settings > Accessibility. With each event, Appwrite records the approximate location of the connection (country, region and city, from the IP address) and the device, system or browser type | To see which parts of the game are used and where players get stuck, so we can improve it. See "Usage data" below | While you play, unless Share usage data is off |
 
-Stored on the device only, never sent to us: settings (theme, sound, music, haptics, timer, reminder time, Share usage data), which daily reminders and event notes are planned, and the save that is waiting to sync.
+Stored on the device only, never sent to us: settings (theme, sound, music, haptics, timer, which notifications you want, reminder time, Share usage data), your answer to the notification question, which daily reminders and event notes are planned, and the save that is waiting to sync.
 
 ## What other players can see
 
@@ -69,9 +69,15 @@ In-app purchases and the VIP subscription are processed by Apple through the App
 
 ## Notifications
 
-Daily reminders and notes before a new event are local notifications: they are planned on your device, and nothing about them is sent to us. Both are off until you turn them on (event notes have their own switch in Settings), and both can be turned off at any time in Settings.
+After your second finished picture the app asks once which notifications you want, with a switch for each kind, before iOS asks for permission. Nothing is sent until you allow notifications, and every kind can be turned off at any time in Settings > Notifications. The four kinds:
 
-Gift notifications ("Anna sent you a gift") come from our backend. When you allow notifications, the app stores your iPhone's push token with your account so our backend (Appwrite Messaging) can ask Apple's push service to deliver them; the notification shows the sender's display name and the gift. The token is deleted when you sign out, turn off Settings > Gifts from friends or delete your account, and the record of each notification sent is deleted from our backend after a day. The web version sends no notifications.
+- **Daily reminders** and **New events** (a note the evening before a new event opens) are local notifications: they are planned on your device, and nothing about them is sent to us. Both are off until you turn them on.
+- **Gifts from friends** ("Anna sent you a gift") come from our backend; the notification shows the sender's display name and the gift.
+- **Messages from Carden** come from our backend when we send you a message in Social > Inbox (news about the game, new packs and events, offers or a gift). They are off until you turn them on.
+
+New events and messages from Carden can promote the game's events, packs and offers, so they are only sent when you turned them on, in the notification question or in Settings.
+
+For gifts and messages, the app stores your iPhone's push token with your account so our backend (Appwrite Messaging) can ask Apple's push service to deliver them, and records with the token whether you want messages from Carden (a subscription to our messages list) or no gift notifications. The token and these records are deleted when you sign out, turn both kinds off or delete your account, and the record of each notification sent is deleted from our backend after a day. The web version sends no notifications.
 
 ## Updates
 

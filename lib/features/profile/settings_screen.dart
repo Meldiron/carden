@@ -14,6 +14,7 @@ import '../../core/theme/tokens.dart';
 import '../../state/auth.dart';
 import '../../state/first_steps.dart';
 import '../../state/sync.dart';
+import '../notifications/notification_prompt.dart' show NotificationKind;
 import '../../state/catalog.dart';
 import '../../models/models.dart';
 import '../../state/purchases.dart';
@@ -118,17 +119,31 @@ class SettingsScreen extends ConsumerWidget {
                 value: steps.calm,
                 onChanged: ref.read(firstStepsProvider.notifier).setGuided,
               ),
-            // Reminders are local iOS notifications; the rows are hidden elsewhere.
-            if (caps.notifications) ...[
+          ]),
+          // Notifications (docs/notifications.md): daily reminders and event notes are local, gifts
+          // and messages are pushes from the server; one iOS permission for all, iPhone only. The
+          // same four kinds, in the same words, as the notification question (NotificationKind).
+          if (caps.notifications)
+            group('Notifications', [
               _SwitchRow(
                 key: const ValueKey('settings-reminders'),
-                icon: AppIcons.bell,
-                label: 'Daily reminders',
-                subtitle: 'One a day with the daily puzzle',
+                icon: NotificationKind.daily.icon,
+                label: NotificationKind.daily.label,
+                subtitle: NotificationKind.daily.subtitle,
                 value: s.reminders,
                 onChanged: (v) => _toggleReminders(context, ref, v),
               ),
-              if (s.reminders)
+              // A note before a world-day event opens, for players who have not played for a while.
+              // Promotional, so its own switch (guideline 4.5.4).
+              _SwitchRow(
+                key: const ValueKey('settings-event-reminders'),
+                icon: NotificationKind.events.icon,
+                label: NotificationKind.events.label,
+                subtitle: NotificationKind.events.subtitle,
+                value: ref.watch(eventRemindersProvider),
+                onChanged: (v) => _toggleEventReminders(context, ref, v),
+              ),
+              if (s.reminders || ref.watch(eventRemindersProvider))
                 _ValueRow(
                   key: const ValueKey('settings-reminder-time'),
                   icon: AppIcons.clock,
@@ -136,31 +151,25 @@ class SettingsScreen extends ConsumerWidget {
                   value: _minutesOfDay(s.reminderMinutes).format(context),
                   onTap: () => _pickReminderTime(context, ref, s.reminderMinutes),
                 ),
-              // A note before a world-day event opens, for players who have not played for a while.
-              if (s.reminders)
-                _SwitchRow(
-                  key: const ValueKey('settings-event-reminders'),
-                  icon: AppIcons.flag,
-                  label: 'New events',
-                  subtitle: 'The evening before an event opens',
-                  value: ref.watch(eventRemindersProvider),
-                  onChanged: (v) {
-                    ref.read(eventRemindersProvider.notifier).set(v);
-                    ref.read(remindersProvider).refresh();
-                  },
-                ),
-              // Gift notifications are pushes from the server (docs/friend-gifts.md); they share
+              // Gifts and messages are pushes from the server (docs/notifications.md); they share
               // the iOS permission with the reminders.
               _SwitchRow(
                 key: const ValueKey('settings-gift-notifications'),
-                icon: AppIcons.gift,
-                label: 'Gifts from friends',
-                subtitle: 'A notification when a friend sends you a gift',
+                icon: NotificationKind.gifts.icon,
+                label: NotificationKind.gifts.label,
+                subtitle: NotificationKind.gifts.subtitle,
                 value: ref.watch(giftNotificationsProvider) && ref.watch(notificationsAllowedProvider).value == true,
-                onChanged: (v) => _toggleGiftNotifications(context, ref, v),
+                onChanged: (v) => _togglePush(context, ref, v, messages: false),
               ),
-            ],
-          ]),
+              _SwitchRow(
+                key: const ValueKey('settings-message-notifications'),
+                icon: NotificationKind.messages.icon,
+                label: NotificationKind.messages.label,
+                subtitle: NotificationKind.messages.subtitle,
+                value: ref.watch(messageNotificationsProvider) && ref.watch(notificationsAllowedProvider).value == true,
+                onChanged: (v) => _togglePush(context, ref, v, messages: true),
+              ),
+            ]),
           group('Account', [
             _NavRow(icon: AppIcons.personCropCircle, label: isGuest ? 'Sign in or create account' : 'Manage account', onTap: () => context.push('/account')),
             _NavRow(key: const ValueKey('settings-blocked'), icon: AppIcons.block, label: 'Blocked players', onTap: () => showBlockedPlayersSheet(context)),
@@ -294,7 +303,7 @@ class SettingsScreen extends ConsumerWidget {
   Future<void> _toggleReminders(BuildContext context, WidgetRef ref, bool on) async {
     final reminders = ref.read(remindersProvider);
     if (!on) {
-      await reminders.disable();
+      await reminders.disableDaily();
       return;
     }
     final granted = await reminders.enable();
@@ -304,31 +313,34 @@ class SettingsScreen extends ConsumerWidget {
       showToast(context, 'Daily reminder at $time', icon: AppIcons.bellFill);
       return;
     }
-    final open = await showAppAlert(
-      context,
-      title: 'Notifications are off',
-      message: 'Allow notifications for Carden in iOS Settings to get a daily reminder.',
-      confirmLabel: 'Open Settings',
-      cancelLabel: 'Not now',
-    );
-    if (open) await ReminderChannel.openSettings();
+    await _notificationsOff(context, 'to get a daily reminder');
   }
 
-  /// On: asks iOS the first time, then registers this iPhone; off: removes it, so no gift
-  /// notification reaches it. When iOS says no, the alert leads to iOS Settings.
-  Future<void> _toggleGiftNotifications(BuildContext context, WidgetRef ref, bool on) async {
+  /// New events: a promotional note, so only ever on by the player's own switch (or the
+  /// notification question, which names it).
+  Future<void> _toggleEventReminders(BuildContext context, WidgetRef ref, bool on) async {
+    final granted = await ref.read(remindersProvider).setEvents(on);
+    if (granted || !context.mounted) return;
+    await _notificationsOff(context, 'to hear when a new event opens');
+  }
+
+  /// Gifts from friends or Messages from Carden. On: asks iOS the first time, then registers this
+  /// iPhone and joins the topic; off: leaves it, and removes the iPhone when neither is on. When iOS
+  /// says no, the alert leads to iOS Settings.
+  Future<void> _togglePush(BuildContext context, WidgetRef ref, bool on, {required bool messages}) async {
     final push = ref.read(pushRegistrationProvider);
-    if (!on) {
-      await push.disable();
-      return;
-    }
-    final granted = await push.enable();
+    final granted = messages ? await push.setMessages(on) : await push.setGifts(on);
     ref.invalidate(notificationsAllowedProvider);
     if (granted || !context.mounted) return;
+    await _notificationsOff(context, messages ? 'to hear when Carden sends you a message' : 'to hear when a friend sends you a gift');
+  }
+
+  /// iOS does not allow Carden's notifications: the way to its page in iOS Settings.
+  static Future<void> _notificationsOff(BuildContext context, String why) async {
     final open = await showAppAlert(
       context,
       title: 'Notifications are off',
-      message: 'Allow notifications for Carden in iOS Settings to hear when a friend sends you a gift.',
+      message: 'Allow notifications for Carden in iOS Settings $why.',
       confirmLabel: 'Open Settings',
       cancelLabel: 'Not now',
     );

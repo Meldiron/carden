@@ -2,12 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/platform.dart';
-import '../core/qa.dart';
 import '../core/reminders.dart';
 import '../models/models.dart';
 import 'catalog.dart';
 import 'profile.dart';
 import 'progress.dart';
+import 'push.dart';
 import 'rewards.dart';
 import 'settings.dart';
 
@@ -142,9 +142,10 @@ List<ReminderNote> planEventReminders({
   return notes;
 }
 
-/// Settings > New events: event notes on top of the daily reminders, stored on the device. They
-/// promote events, so they are off until the player turns them on: the switch, or Turn on in the
-/// reminder question, whose copy names them (guideline 4.5.4, explicit opt-in; owner, 2026-10-15).
+/// Settings > New events: a note the evening before a world-day event opens, stored on the device.
+/// They promote events, so they are off until the player turns them on: the switch, or Allow in the
+/// notification question, whose switch names them (guideline 4.5.4, explicit opt-in; owner,
+/// 2026-10-15). Independent of the daily reminders since 2026-10-18.
 class EventRemindersNotifier extends Notifier<bool> {
   static const _key = 'eventReminders';
 
@@ -169,64 +170,55 @@ List<UpcomingEvent> upcomingEvents(Iterable<GameEvent> events, Iterable<Pack> pa
   ];
 }
 
-/// Whether to ask, in the game and before the iOS prompt, if the player wants
-/// a daily reminder. Asked once, right after a daily gift on the player's
-/// second day with one at the earliest ([giftDays] counts claims on this
-/// device; a [streak] of 2 or more covers players who claimed before the
-/// count existed), and only while reminders are off and iOS has never asked.
-bool shouldOfferReminders({
-  required int giftDays,
-  required int streak,
-  required bool remindersOn,
-  required bool offerShown,
-  required ReminderPermission permission,
-}) =>
-    !offerShown && !remindersOn && permission == ReminderPermission.notDetermined && (giftDays >= 2 || streak >= 2);
-
-/// Keeps the pending reminders in line with the Settings switch, the iOS
-/// permission and the player's day. [refresh] runs when the app starts,
-/// comes back and goes to the background, so the week ahead is always
-/// planned from the latest state (a claimed gift removes today's reminder).
+/// Keeps the pending reminders in line with the Settings switches (Daily reminders, New events),
+/// the iOS permission and the player's day. [refresh] runs when the app starts, comes back and goes
+/// to the background, so the week ahead is always planned from the latest state (a claimed gift
+/// removes today's reminder). The two switches are independent: event notes need no daily reminder.
 class RemindersController {
   RemindersController(this._ref);
   final Ref _ref;
 
   Future<void> refresh() async {
     if (!supportsNotifications) return;
-    final settings = _ref.read(settingsProvider);
-    if (!settings.reminders) {
+    final daily = _ref.read(settingsProvider).reminders;
+    final events = _ref.read(eventRemindersProvider);
+    if (!daily && !events) {
       await ReminderChannel.cancel();
       return;
     }
     if (await ReminderChannel.status() != ReminderPermission.granted) {
-      // Turned off in iOS Settings: the switch follows.
+      // Turned off in iOS Settings: the switches follow (event notes need a new yes after it).
       _ref.read(settingsProvider.notifier).setReminders(false);
+      _ref.read(eventRemindersProvider.notifier).set(false);
       await ReminderChannel.cancel();
       return;
     }
-    var puzzles = const <Puzzle>[];
-    try {
-      puzzles = await _ref.read(allPuzzlesProvider.future).timeout(const Duration(seconds: 15));
-    } catch (e) {
-      debugPrint('reminders: catalogue not ready ($e)');
-    }
     final now = DateTime.now();
     final minutes = _ref.read(settingsProvider).reminderMinutes;
-    final notes = planReminders(
-      now: now,
-      minutes: minutes,
-      puzzles: puzzles,
-      profile: _ref.read(profileProvider).value,
-      progress: _ref.read(progressProvider).value ?? const {},
-    );
-    if (_ref.read(eventRemindersProvider)) {
+    final notes = <ReminderNote>[];
+    if (daily) {
+      var puzzles = const <Puzzle>[];
       try {
-        final events = await _ref.read(eventsProvider.future).timeout(const Duration(seconds: 15));
+        puzzles = await _ref.read(allPuzzlesProvider.future).timeout(const Duration(seconds: 15));
+      } catch (e) {
+        debugPrint('reminders: catalogue not ready ($e)');
+      }
+      notes.addAll(planReminders(
+        now: now,
+        minutes: minutes,
+        puzzles: puzzles,
+        profile: _ref.read(profileProvider).value,
+        progress: _ref.read(progressProvider).value ?? const {},
+      ));
+    }
+    if (events) {
+      try {
+        final rows = await _ref.read(eventsProvider.future).timeout(const Duration(seconds: 15));
         final packs = await _ref.read(packRowsProvider.future).timeout(const Duration(seconds: 15));
         notes.addAll(planEventReminders(
           now: now,
           minutes: minutes,
-          events: upcomingEvents(events, packs),
+          events: upcomingEvents(rows, packs),
           busyDays: {for (final n in notes) Goals.dayKey(n.at)},
         ));
       } catch (e) {
@@ -239,15 +231,47 @@ class RemindersController {
   /// Turns reminders on, asking iOS the first time. False when iOS does not
   /// allow notifications (the switch stays off).
   Future<bool> enable() async {
-    final granted = await ReminderChannel.request(quiet: QaRun.enabled && QaRun.integrationRun);
+    final granted = await NotificationPermission.ask(from: 'settings_reminders');
     _ref.read(settingsProvider.notifier).setReminders(granted);
+    _ref.invalidate(notificationsAllowedProvider);
     if (granted) await refresh();
     return granted;
   }
 
+  /// Settings > Daily reminders off (event notes stay as they are).
+  Future<void> disableDaily() async {
+    _ref.read(settingsProvider.notifier).setReminders(false);
+    await refresh();
+  }
+
+  /// Every reminder off, daily reminders and event notes (a deleted account starts over).
   Future<void> disable() async {
     _ref.read(settingsProvider.notifier).setReminders(false);
+    _ref.read(eventRemindersProvider.notifier).set(false);
     await ReminderChannel.cancel();
+  }
+
+  /// Settings > New events: on asks iOS the first time; false when iOS does not allow
+  /// notifications (the switch stays off).
+  Future<bool> setEvents(bool on) async {
+    if (!on) {
+      _ref.read(eventRemindersProvider.notifier).set(false);
+      await refresh();
+      return true;
+    }
+    final granted = await NotificationPermission.ask(from: 'settings_events');
+    _ref.read(eventRemindersProvider.notifier).set(granted);
+    _ref.invalidate(notificationsAllowedProvider);
+    if (granted) await refresh();
+    return granted;
+  }
+
+  /// The notification question's answer: both switches at once, without asking iOS (the question
+  /// asks it), then the week planned again.
+  Future<void> apply({required bool daily, required bool events}) async {
+    _ref.read(settingsProvider.notifier).setReminders(daily);
+    _ref.read(eventRemindersProvider.notifier).set(events);
+    await refresh();
   }
 
   Future<void> setTime(int minutes) async {

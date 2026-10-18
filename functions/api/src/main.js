@@ -22,7 +22,7 @@
 //                                                   only the shared card), and its association file
 //
 // A scheduled execution (trigger `schedule`: the function's hourly `0 * * * *`) runs the co-op cleanup
-// (it was the coop-cleanup function) and the integrity sweep, whatever its path; the sweep changes
+// (it was the coop-cleanup function), the integrity sweep and the push log cleanup, whatever its path; the sweep changes
 // rows only when the variable SWEEP_APPLY is `true` (else it reports), and reads everything once a
 // day (FULL_HOUR). An event execution for a new `blocks` row (trigger `event`) checks that row at
 // once. Appwrite sets x-appwrite-trigger and x-appwrite-event itself.
@@ -105,6 +105,12 @@ async function scheduled({ req, res, log, error }) {
     out.inviteCards = await (await inviteCards()).cleanCards(req, log);
   } catch (e) {
     error(`invite cards: ${e?.stack ?? e}`);
+  }
+  try {
+    // Inbox pushes older than a day (friend gifts, messages from Carden) leave Messaging's log.
+    await (await gift()).cleanPushLog(req, log);
+  } catch (e) {
+    error(`push log: ${e?.stack ?? e}`);
   }
   return res.json(out, out.ok ? 200 : 500);
 }

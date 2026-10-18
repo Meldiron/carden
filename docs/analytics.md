@@ -139,8 +139,11 @@ A route added later is named after its last fixed part (`/join/:code` is `join`)
 | `my_puzzle_uploaded` | `source` (`gallery`, `camera`) | A photo added in My Puzzles |
 | `gift_sent` | `kind` (`ticket`, `coins`) | A friend gift the server accepted (Player > Send a gift, `friend_gifts.dart`; docs/friend-gifts.md) |
 | `gift_claimed` | `kind` (`ticket`, `coins`) | A friend's gift claimed in the inbox (after its `inbox_message_claimed`) |
-| `push_permission` | `result` (`granted`, `denied`) | The iOS notification prompt answered, from the gift question or Settings > Gifts from friends (`PushRegistration.enable`) |
-| `push_opened` | `kind` (`gift`) | A gift notification tapped (`app.dart`; its `/inbox?message=` link follows) |
+| `notification_prompt_shown` | `pictures` (finished so far) | The notification question shown (`notification_prompt.dart`; docs/notifications.md) |
+| `notification_prompt_allowed` | `daily`, `events`, `gifts`, `messages` (the switches as left), `granted` (iOS's answer) | Its Allow, with at least one switch on |
+| `notification_prompt_declined` | `allOff` (Allow with every switch off) | Its Not now, or Allow with every switch off |
+| `push_permission` | `result` (`granted`, `denied`), `from` (`prompt`, `settings_reminders`, `settings_events`, `settings_gifts`, `settings_messages`) | The iOS notification prompt answered (`NotificationPermission.ask`) |
+| `push_opened` | `kind` (`gift`, `message`: a message from Carden) | A notification from the server tapped (`app.dart`; its `/inbox?message=` link follows) |
 | `coop_game_created` | `mode`, `board` (`4x5`), `cards`, `painting`, `giant` | Pause > Play together started a game on the board (`join_flow.dart`) |
 | `coop_invite_shared` | `via` (`sheet`, `copy`), `players` | The invite went to the share sheet, or the link was copied (a browser without one) (`share_invite.dart`) |
 | `coop_game_joined` | `freshInstall` (opened before the welcome pages), `platform` (`app`, `web`), `players` (with this one), `cards` | An invite link joined a game (`join_flow.dart`) |

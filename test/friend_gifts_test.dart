@@ -79,15 +79,18 @@ void main() {
 
   group('push registration', () {
     late _Targets targets;
+    late _Subscriptions subscriptions;
     late ProviderContainer c;
 
     Future<void> setUpContainer({Map<String, Object> prefs = const {}}) async {
       SharedPreferences.setMockInitialValues(prefs);
       final store = await LocalStore.open();
       targets = _Targets(() => c.read(currentUserIdProvider));
+      subscriptions = _Subscriptions();
       c = ProviderContainer(overrides: [
         localStoreProvider.overrideWithValue(store),
         pushTargetsProvider.overrideWithValue(targets),
+        pushSubscriptionsProvider.overrideWithValue(subscriptions),
         currentUserIdProvider.overrideWith((ref) => ref.watch(_user)),
       ]);
       addTearDown(c.dispose);
@@ -137,6 +140,67 @@ void main() {
       await c.read(pushRegistrationProvider).onToken('tok1');
       expect(targets.calls, isEmpty);
     });
+
+    // Messages from Carden (docs/notifications.md): the target joins the topic tools/dev/inbox.py
+    // pushes to; with gifts off it stays for messages only and joins gifts-off, which the gift push
+    // leaves out.
+    test('Messages from Carden: off until turned on, then the target joins the messages topic', () async {
+      await setUpContainer();
+      expect(c.read(messageNotificationsProvider), isFalse, reason: 'promotional: needs the player\'s yes');
+      final push = c.read(pushRegistrationProvider);
+      c.read(_user.notifier).set('anna');
+      await push.onToken('tok1', environment: 'production');
+      expect(subscriptions.calls, isEmpty, reason: 'gifts alone need no topic');
+      c.read(messageNotificationsProvider.notifier).set(true);
+      await push.sync();
+      expect(subscriptions.calls, ['join carden-messages mtarget-1 target-1']);
+      await push.sync();
+      expect(subscriptions.calls, hasLength(1), reason: 'saved with the target: nothing is sent again');
+    });
+
+    test('Gifts off with messages on: the target stays, in gifts-off; both off: it goes', () async {
+      await setUpContainer();
+      final push = c.read(pushRegistrationProvider);
+      c.read(_user.notifier).set('anna');
+      c.read(messageNotificationsProvider.notifier).set(true);
+      await push.onToken('tok1', environment: 'development');
+      expect(targets.calls, ['create anna tok1 apns-sandbox']);
+      await push.setGifts(false);
+      expect(targets.calls, hasLength(1), reason: 'messages still need the target');
+      expect(subscriptions.calls, ['join carden-messages mtarget-1 target-1', 'join gifts-off gtarget-1 target-1']);
+      // On again (the switch asks iOS first, which allows notifications here).
+      c.read(giftNotificationsProvider.notifier).set(true);
+      await push.sync();
+      expect(subscriptions.calls.last, 'leave gifts-off gtarget-1');
+      await push.setGifts(false);
+      await push.setMessages(false);
+      expect(targets.calls.last, 'delete target-1', reason: 'nothing wants the target: it goes, its topics with it');
+    });
+
+    test('a new session gets a new target, which joins its topics again', () async {
+      await setUpContainer(prefs: {'messageNotifications': 'on'});
+      final push = c.read(pushRegistrationProvider);
+      c.read(_user.notifier).set('guest1');
+      await push.onToken('tok1');
+      c.read(_user.notifier).set('anna');
+      await pumpEventQueue();
+      expect(subscriptions.calls, ['join carden-messages mtarget-1 target-1', 'join carden-messages mtarget-2 target-2']);
+    });
+
+    test('a topic the target is already in counts as joined', () async {
+      await setUpContainer(prefs: {'messageNotifications': 'on'});
+      subscriptions.conflict = true;
+      c.read(_user.notifier).set('anna');
+      await c.read(pushRegistrationProvider).onToken('tok1');
+      await c.read(pushRegistrationProvider).sync();
+      expect(subscriptions.calls, ['join carden-messages mtarget-1 target-1'], reason: 'a 409 is remembered, not retried');
+    });
+
+    test('a notification link says whether it is a gift or a message from Carden', () {
+      expect(pushKindOf('/inbox?message=abc&from=carden'), 'message');
+      expect(pushKindOf('/inbox?message=abc'), 'gift');
+      expect(pushKindOf(null), 'gift');
+    });
   });
 }
 
@@ -148,6 +212,20 @@ class _User extends Notifier<String?> {
 }
 
 final _user = NotifierProvider<_User, String?>(_User.new);
+
+class _Subscriptions implements PushSubscriptions {
+  final calls = <String>[];
+  bool conflict = false;
+
+  @override
+  Future<void> subscribe(String topicId, String subscriberId, String targetId) async {
+    calls.add('join $topicId $subscriberId $targetId');
+    if (conflict) throw AppwriteException('Subscriber already exists.', 409, 'subscriber_already_exists');
+  }
+
+  @override
+  Future<void> unsubscribe(String topicId, String subscriberId) async => calls.add('leave $topicId $subscriberId');
+}
 
 class _Targets implements PushTargets {
   _Targets(this._currentUser);

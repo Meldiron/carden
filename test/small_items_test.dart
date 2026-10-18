@@ -1,6 +1,5 @@
 // Unit and widget tests for the small items of 2026-10-14: picture search, the New badge and
 // filter, Lucky Wheel odds, the reminder offer, tomorrow's preview and the build version.
-import 'package:carden/core/reminders.dart';
 import 'package:carden/core/theme/app_theme.dart';
 import 'package:carden/data/local_store.dart';
 import 'package:carden/features/daily/wheel_screen.dart';
@@ -11,7 +10,6 @@ import 'package:carden/features/profile/settings_screen.dart';
 import 'package:carden/models/models.dart';
 import 'package:carden/state/catalog_sync.dart';
 import 'package:carden/state/profile.dart';
-import 'package:carden/state/reminders.dart';
 import 'package:carden/widgets/icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -187,24 +185,6 @@ void main() {
       }
       expect(wheelPick(0), 0);
       expect(wheelPick(0.9999999), wheelSegments.length - 1);
-    });
-  });
-
-  group('Reminder offer', () {
-    bool offer({int giftDays = 2, int streak = 1, bool on = false, bool shown = false, ReminderPermission permission = ReminderPermission.notDetermined}) =>
-        shouldOfferReminders(giftDays: giftDays, streak: streak, remindersOn: on, offerShown: shown, permission: permission);
-
-    test('asked after a gift on the second day, once', () {
-      expect(offer(giftDays: 1), isFalse);
-      expect(offer(giftDays: 2), isTrue);
-      expect(offer(giftDays: 1, streak: 2), isTrue, reason: 'players who claimed before the count existed');
-      expect(offer(shown: true), isFalse);
-    });
-
-    test('never when reminders are on or iOS has already answered', () {
-      expect(offer(on: true), isFalse);
-      expect(offer(permission: ReminderPermission.granted), isFalse);
-      expect(offer(permission: ReminderPermission.denied), isFalse);
     });
   });
 
