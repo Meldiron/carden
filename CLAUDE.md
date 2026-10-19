@@ -320,7 +320,10 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   (reboot the simulator afterwards: an unanswered iOS prompt survives an uninstall).
 - Painting and giant boards: `progress.painting`; `lib/state/giant.dart` (`isGiantPack`,
   `isGiantPuzzleProvider`: packs of category `Giant` get the Large/Huge/Giant/Colossal ladder only, square:
-  Cards 10x10 to 17x17 (100-289 cards), Triangles 10x10 to 18x18), `puzzleImageFullProvider` (full-resolution decode), `BoardZoom` in
+  Cards 10x10 to 17x17 (100-289 cards), Triangles 10x10 to 18x18), `puzzleImageFullProvider` (full-resolution
+  decode; on the web at most 2048 px, `webGiantSide`, and picture bytes in the 32 MB `RecentPictures`, not the
+  cache manager's never-freed memory: a 22x22 board took a tab to 1.2 GB, the likely cause of a tab crash on an
+  8 GB Mac, docs/web.md "Memory"), `BoardZoom` in
   `board_widget.dart` (pinch, two-finger pan, `fitCell` zoom limit, auto-pan; no double tap); the bar,
   overview map, off-screen pointer and milestones in `lib/features/game/giant_board.dart`; saved views and
   the map switch in `GiantViews` (`lib/state/giant.dart`). No zones and no Edges (owner removed both

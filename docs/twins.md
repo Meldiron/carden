@@ -63,7 +63,10 @@ simulator `integration_test/twins_test.dart` (a sky) and `twins_night_test.dart`
 ## The measure
 
 `TwinFinder` reads the part of the picture the board shows (the same crop the board draws, the
-1400 px decode, giant pictures at 2048 px) and samples every card the same way:
+1400 px decode, giant pictures at 2048 px; on the web the giant decode is itself at most 2048 px on
+its longer side, so a crop reads a little smaller there, and a borderline pair may be twins on one
+device and not the other, which Play together tolerates, see docs/multiplayer.md) and samples
+every card the same way:
 
 - **Boxes**: a grid over the card, about 4 px each (12 to 32 across, about 2 pt on screen), each the
   mean colour of its pixels, so grain and JPEG noise average out. A rectangle is covered edge to

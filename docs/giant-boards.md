@@ -7,7 +7,9 @@ one up and one down triangle) and Hexagons 13x13 to 23x23, the sizes nearest the
 had (`BoardSpec.squareGiantTiers`). The
 picture is centre-cropped to the board; Expand, where the picture's shape asks for it, deals the
 picture-shaped giant sizes of before (`BoardSpec.giantTiers`). The pictures are hosted at up to
-4096 px on the long side and decoded at full size, so the board can be zoomed in and stay sharp.
+4096 px on the long side and decoded at full size, so the board can be zoomed in and stay sharp
+(on the web at most 2048 px on the long side, `webGiantSide`: a full-size picture took a browser
+tab to about 1.2 GB; docs/web.md, "Memory").
 This page records how other big-board jigsaw apps help players on a phone and what Carden does on
 a giant board.
 

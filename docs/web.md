@@ -41,6 +41,42 @@ leaves the browser). Before 2026-10-17 it was written to localStorage, which ref
 in localStorage moves to IndexedDB on the first launch and leaves localStorage; where IndexedDB
 cannot be opened, localStorage is used as before. The iPhone keeps SharedPreferences.
 
+## Memory
+
+A player's Opera tab on an 8 GB MacBook Neo crashed on a 22x22 giant board (2026-10-19). Measured
+in headless Chromium on a Retina window (`footprint` of the GPU and renderer processes; an empty
+page with one WebGL canvas takes 240 MB in the GPU process, almost none of it graphics):
+
+| Screen (build of 2026-10-18) | GPU process | Page | Together |
+| --- | --- | --- | --- |
+| Difficulty screen | 447 MB | 190 MB | 0.64 GB |
+| Normal board, 7x7 | 602 MB | 259 MB | 0.86 GB |
+| Giant picture, 13x13 | 736 MB | 344 MB | 1.08 GB |
+| Giant picture, 22x22, dealt and played 12 min (539 moves, 11 Peeks) | 718-740 MB | 358-490 MB | 1.1-1.2 GB |
+
+Memory stayed level while playing (no leak), and a 13x13 board of a giant picture cost about what
+a 22x22 one did: the picture, more than the number of cards. A browser holds it more than once (the
+decode, its GPU texture with mipmaps), and the web engine decodes the whole file before it scales.
+Since then:
+
+- **Giant pictures are decoded at most 2048 px on their longer side on the web** (`webGiantSide`
+  in `lib/game/image_loader.dart`; the size comes from the file's header, `encodedSize`, because
+  the web cannot read an `ImageDescriptor`). A quarter of the pixels of a 3072x4096 picture; a
+  card at the zoom limit still shows about 70 picture pixels across on the biggest boards. The
+  iPhone keeps the full size. A freshly dealt 22x22 board with 40 moves and 2 Peeks: 1.20-1.26 GB
+  before, 1.10-1.15 GB after (frame rate unchanged).
+- **Pictures are kept in `RecentPictures`** (`lib/core/image_files.dart`, 32 MB, the one used
+  longest ago goes first) instead of `DefaultCacheManager`, whose web version keeps every file it
+  fetched in memory for the whole session. The browser's HTTP cache keeps the files (Storage sends
+  `cache-control: private, max-age=3888000`), so a picture read again comes from the disk.
+
+Skia's GPU cache on the web (256 MB by default) fills up to its limit whatever is drawn, so the
+GPU process stays near the same size on any busy screen. Measured, not shipped: a 128 MB limit
+(`SystemChannels.skia`, `Skia.setResourceCacheMaxBytes`) took the same board to 1.00-1.02 GB with
+the same frame rate; 64 MB saved nothing more.
+
+Tests: `test/web_pictures_test.dart`.
+
 ## Known gap: images without CORS headers
 
 The browser only lets Flutter decode an image into a puzzle board when the
