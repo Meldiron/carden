@@ -136,7 +136,9 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   (`refs/entire/checkpoints/*`, backend `git-refs`): hooks in `.claude/settings.json`, `.opencode/plugins/entire.ts`
   and `.git/hooks`, settings `.entire/settings.json`. Commits made in a session get an `Entire-Checkpoint` trailer;
   every `git push` also uploads checkpoints to the PRIVATE repo `Meldiron/carden-checkpoints`, never to the public
-  `origin` (transcripts hold everything an agent read). Keep `checkpoint_remote` pointing there.
+  `origin` (transcripts hold everything an agent read). Keep `checkpoint_remote` pointing there. entire.io reads
+  that repo through the Entire GitHub App (github.com/apps/entire, "Only select repositories"): without access to
+  `carden-checkpoints` the Sessions page stays empty (`entire repo mirror list --available` lists what it can see).
 - Simulators: iPhone 17 Pro `CDD7317C-19D6-486D-B258-8AB8A607297D` (QA), iPhone 17 Pro Max
   `D03644FB-6169-4E87-8E0F-CCFC884FBE78` (App Store 6.9" screenshots).
 - Screenshot QA: `tools/dev/qa.sh shots` = `tools/dev/qa-run.sh drive
