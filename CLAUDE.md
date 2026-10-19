@@ -132,6 +132,11 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
 
 - Flutter 3.47 at `~/flutter` (not on PATH): `export PATH="$HOME/flutter/bin:$PATH"`.
 - Gates before any build: `flutter analyze --fatal-infos --fatal-warnings` and `flutter test`.
+- Entire CLI (owner, 2026-10-19) records Claude Code and OpenCode sessions as checkpoints, one git ref each
+  (`refs/entire/checkpoints/*`, backend `git-refs`): hooks in `.claude/settings.json`, `.opencode/plugins/entire.ts`
+  and `.git/hooks`, settings `.entire/settings.json`. Commits made in a session get an `Entire-Checkpoint` trailer;
+  every `git push` also uploads checkpoints to the PRIVATE repo `Meldiron/carden-checkpoints`, never to the public
+  `origin` (transcripts hold everything an agent read). Keep `checkpoint_remote` pointing there.
 - Simulators: iPhone 17 Pro `CDD7317C-19D6-486D-B258-8AB8A607297D` (QA), iPhone 17 Pro Max
   `D03644FB-6169-4E87-8E0F-CCFC884FBE78` (App Store 6.9" screenshots).
 - Screenshot QA: `tools/dev/qa.sh shots` = `tools/dev/qa-run.sh drive
