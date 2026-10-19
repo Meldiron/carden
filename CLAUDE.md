@@ -427,8 +427,11 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
 - Help (owner, 2026-10-15): Settings > Help > Contact support opens an email to contact@almostapps.eu with
   the version and player id below the message (copies the address when there is no mail app); Send
   feedback writes a `feedback` row (userId, message, appVersion, platform) with no permissions, so only the
-  server reads it: `tools/dev/feedback.py` lists and closes them. Deleted with the account (`delete-account`)
-  and with QA players. `lib/features/profile/help.dart`. Shake to send feedback (owner, 2026-10-18; iPhone only): a
+  server reads it: `tools/dev/feedback.py` lists them (`--open`) and resolves them (`--resolve ROWID --note`:
+  columns `status` open/resolved, `resolvedAt`, `resolution`, added 2026-10-19). Feedback is kept for good
+  (owner, 2026-10-19): never delete a row to close it. Deleted only with the account (`delete-account`)
+  and with QA players. Thank the player in their Inbox (skill `inbox-messages`, CTA `/feedback`).
+  `lib/features/profile/help.dart`. Shake to send feedback (owner, 2026-10-18; iPhone only): a
   shake on any screen opens Send feedback over everything (`ShakeFeedbackHost`, `lib/core/shake.dart`, channel
   `cjw/shake`, `UIWindow.motionEnded` in AppDelegate.swift; the app delegate never gets shakes), Settings > Help switch,
   on by default. QA `integration_test/shake_feedback_test.dart`; shake a simulator with `xcrun simctl spawn <udid>
