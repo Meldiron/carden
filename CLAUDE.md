@@ -536,8 +536,9 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   images (owner's pick: a glass ring around an iceberg for Monthly, a hot-air balloon for Yearly, no text) come from
   `tools/store/make_promo.py`; rules and the swap in the apple-release skill, "Promotional images". Same day: the
   rejected submission was cancelled (its items could not be changed), both new images are on Apple, and all 15 In-App
-  Events are drafts again (owner: release without events, decide on them later). Next, after the owner's check: a
-  fresh submission (`asc_publish.py submit`: version with build 128, the 8 products and both plans, no events). `ev-un-day-2026` stayed a draft: its publish date (2026-10-18) had passed, and Apple refuses
+  Events are drafts again (owner: release without events, decide on them later). The owner checked the images; the new
+  draft 5625b9d3 (`asc_publish.py draft`: version with build 128, the 8 products, both plans and the VIP group, no
+  events; audit clean) waits for the owner's Submit (App Store Connect > Draft Submissions, or `submit --yes`). `ev-un-day-2026` stayed a draft: its publish date (2026-10-18) had passed, and Apple refuses
   the whole submission (409 `appEvents ... is not in valid state`) until such an event is taken out. After launch
   the Get Carden link moves from TestFlight to the App Store in `lib/core/links.dart`, `web/index.html`,
   `functions/api/src/invite/page.js` and the homepage's `src/config.ts`; the next build is 2.0.1 (an approved
