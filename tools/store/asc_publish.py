@@ -1063,17 +1063,18 @@ def check_promotional_images() -> None:
 
 
 def sync_promotional_image(s: Store, sid: str, pid: str, path: Path) -> None:
-    """Keep exactly this file as the plan's promotional image: an image with another file name or content
-    is deleted first (the rejected shared image of 2.0.0 included), then the file is uploaded."""
+    """Keep exactly this file as the plan's promotional image: an image with other content is deleted first
+    (the rejected shared image of 2.0.0 included), then the file is uploaded. Apple names every uploaded image
+    "SOURCE", so the image is matched by its checksum (by file name only when Apple gives no checksum)."""
     images = s.c.get_list(f"/v1/subscriptions/{sid}/images")
     pending = [i for i in images if (attr(i, "assetDeliveryState") or {}).get("state") in ("AWAITING_UPLOAD", "FAILED")]
     keep = []
     for img in (i for i in images if i not in pending):
         checksum = attr(img, "sourceFileChecksum")
-        if attr(img, "fileName") == path.name and checksum in (None, md5_of(path)):
+        if (checksum == md5_of(path)) if checksum else (attr(img, "fileName") == path.name):
             keep.append(img)
             continue
-        log(f"  subscriptionImages: {attr(img, 'fileName')} is not the current {path.name}, replacing it")
+        log(f"  subscriptionImages: the image on Apple is not the current {path.name}, replacing it")
         try:
             s.c.request("DELETE", f"/v1/subscriptionImages/{img['id']}")
         except ApiError as e:

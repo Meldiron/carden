@@ -125,9 +125,11 @@ plans, text too small to read and "7 days free", which Apple counts as a price r
 `tools/store/make_promo.py` draws the VIP pair (`tools/brand/vip-promo.js`: a ring of six glass segments in the
 icon's material around a CC0 catalogue picture from `store/promo/sources/`; Monthly one segment and a silver rim,
 Yearly all six and a gold rim). `asc_publish.py subscriptions` refuses two plans with the same image and replaces
-an image whose file name or checksum changed. Apple keeps the image while the plan's item sits in a review
-submission (409): take the item out (DELETE its `reviewSubmissionItems/{id}`, as in the next section), run
-`subscriptions`, then add the item back. `test/store_promo_test.dart` checks size, colour type, that the two differ
+an image whose checksum differs (Apple names every upload "SOURCE"). Apple keeps the image while the plan's item sits in a review
+submission (409 "version is not editable"). In a draft, take the item out (DELETE its `reviewSubmissionItems/{id}`,
+as in the next section), run `subscriptions`, then add the item back. A submission Apple has already reviewed
+(UNRESOLVED_ISSUES) refuses that ("Item was already submitted"): cancel it (PATCH `reviewSubmissions/{id}`
+`canceled: true`, COMPLETE within a minute), swap the image, then submit afresh (`submit`). Done so on 2026-11-04. `test/store_promo_test.dart` checks size, colour type, that the two differ
 and that the plans' names and descriptions carry no price words.
 
 ## Renaming in-app purchases while they sit in a review draft
