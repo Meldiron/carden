@@ -23,7 +23,7 @@ research and reasoning are in `docs/store-screenshots.md`.
 | `review/iap-review.png` | The top of the store (the coin bundles), the App Review screenshot of the four `coins_*` products (`consumables.json`, top-level `reviewScreenshot`). A copy of `raw/11_store.png`. | 1320x2868 |
 | `review/iap-review-boosters.png` | The store scrolled to its Tickets and Boosters sections, every booster tile whole (Peeks, Hints and Magic), light theme: the App Review screenshot of `tickets_5`, `tickets_15`, `hints_5` and `hints_15` (their own `reviewScreenshot`). `raw/35_store_boosters_light.png` in RGB, written by `make_promo.py`. | 1320x2868 |
 | `promo/app-icon-1024.png` | The app icon flattened to RGB (App Store rejects alpha). | 1024x1024 |
-| `promo/vip-promotional-1024.png` | Promotional image for the VIP subscription (icon, "VIP" word mark, one-line benefit). | 1024x1024 |
+| `promo/vip-monthly-promotional-1024.png`, `promo/vip-yearly-promotional-1024.png` | Promotional images of the two VIP plans, one each and no text (App Review 2.3.2, 2026-11-04): a ring of six glass segments around a catalogue picture in `promo/sources/` (Monthly: one segment, silver rim, an iceberg; Yearly: all six, gold rim, a hot-air balloon). `tools/brand/vip-promo.js`, rendered by `make_promo.py`. | 1024x1024, RGB |
 
 Marketing slides (`screenshots/iphone-6.9/`), in upload order. Slides 1-3
 appear in search results, so they carry the core loop, the catalogue and

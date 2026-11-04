@@ -529,9 +529,13 @@ from build 127; builds 124-126 share play.carden.page/join/<code>, which still w
   works in Sandbox only; `tools/dev/apple_notifications.py`), refreshing the local
   team profile in Xcode before the next `tools/dev/device.sh` (it lacks Push Notifications and Associated
   Domains), restoring `secrets/appwrite-storage-key.txt` (the content tool falls back to the users key).
-- **In App Review since 2026-10-18** (owner's go; Paid Apps agreement, banking and tax active since 2026-10-14):
-  2.0.0 with build 128 (release MANUAL: after approval press "Release this version"), the 8 products, both VIP plans
-  and 14 In-App Events. `ev-un-day-2026` stayed a draft: its publish date (2026-10-18) had passed, and Apple refuses
+- **Rejected 2026-11-04, to resubmit** (in App Review from 2026-10-18, owner's go; Paid Apps agreement, banking and
+  tax active since 2026-10-14): 2.0.0 with build 128 (release MANUAL: after approval press "Release this version"), the
+  8 products, both VIP plans and 14 In-App Events. Apple faulted only the VIP promotional images (Guideline 2.3.2: one
+  image shared by both plans, small text, "7 days free" as a price reference); build 128 goes back unchanged. The new
+  images (owner's pick: a glass ring around an iceberg for Monthly, a hot-air balloon for Yearly, no text) come from
+  `tools/store/make_promo.py`; rules and the swap in the apple-release skill, "Promotional images". Before resubmitting,
+  take out every In-App Event whose publish date has passed. `ev-un-day-2026` stayed a draft: its publish date (2026-10-18) had passed, and Apple refuses
   the whole submission (409 `appEvents ... is not in valid state`) until such an event is taken out. After launch
   the Get Carden link moves from TestFlight to the App Store in `lib/core/links.dart`, `web/index.html`,
   `functions/api/src/invite/page.js` and the homepage's `src/config.ts`; the next build is 2.0.1 (an approved

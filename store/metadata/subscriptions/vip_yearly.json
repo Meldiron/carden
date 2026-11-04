@@ -23,7 +23,7 @@
   },
   "reviewNote": "Auto-renewable yearly subscription with a 7-day free trial, same entitlement as VIP Monthly (every pack including past monthly daily packs, no house ads). Both plans sit in the VIP group at the same level, so switching between them is a crossgrade. The grant is applied server-side by our Appwrite Function after verifying the signed transaction; the function runs in Production and falls back to Sandbox for sandbox transactions, so App Review's Sandbox purchases verify. Test: Home > tap coin balance > Store > Yearly, confirm with a Sandbox Apple ID.",
   "reviewScreenshot": "store/review/subscription-review.png",
-  "promotionalImage": "store/promo/vip-promotional-1024.png",
+  "promotionalImage": "store/promo/vip-yearly-promotional-1024.png",
   "winBackOffers": [
     {
       "offerId": "vip_yearly_winback",

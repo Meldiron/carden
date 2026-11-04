@@ -112,6 +112,24 @@ On top of the TestFlight checks below (the guideline review of 2026-10-15 found 
 `docs/release-flow.md`, `docs/release-checklist.md` (its last section lists possible pipeline
 improvements: notes only, not started without the owner's go), `tools/store/README.md`.
 
+## Promotional images
+App Review rejected 2.0.0 on 2026-11-04 (Guideline 2.3.2) over the VIP promotional image: one image for both
+plans, text too small to read and "7 days free", which Apple counts as a price reference. The rules since:
+- One image per product, visibly different from every other product's and from the app icon; no screenshots.
+- No text at all: no price, "free", trial, "save" or "best value" words (2.3.2, 2.3.7, 2.3.14). The App Store shows
+  the display name (30 characters) and description (45) beside the image; they carry no price either.
+- 1024 x 1024 PNG, RGB without alpha, no rounded corners (Apple frames and rounds it). Keep the lower-left corner free:
+  in search the App Store puts the app icon there. It must read at about 60 pt.
+- Win-back offers have no image of their own: they use the plan's approved image, so deleting it stops them.
+
+`tools/store/make_promo.py` draws the VIP pair (`tools/brand/vip-promo.js`: a ring of six glass segments in the
+icon's material around a CC0 catalogue picture from `store/promo/sources/`; Monthly one segment and a silver rim,
+Yearly all six and a gold rim). `asc_publish.py subscriptions` refuses two plans with the same image and replaces
+an image whose file name or checksum changed. Apple keeps the image while the plan's item sits in a review
+submission (409): take the item out (DELETE its `reviewSubmissionItems/{id}`, as in the next section), run
+`subscriptions`, then add the item back. `test/store_promo_test.dart` checks size, colour type, that the two differ
+and that the plans' names and descriptions carry no price words.
+
 ## Renaming in-app purchases while they sit in a review draft
 If products were added to the app's open review submission ("Submit for Review" on the products in App
 Store Connect), their en-GB localization (customer name and description) is locked: PATCH and DELETE

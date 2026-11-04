@@ -23,7 +23,7 @@
   },
   "reviewNote": "Auto-renewable monthly subscription with a 7-day free trial. VIP unlocks every pack (including past monthly daily packs) and hides the game's own store promotions. The grant is applied server-side by our Appwrite Function after verifying the signed transaction; the function runs in Production and falls back to Sandbox for sandbox transactions, so App Review's Sandbox purchases verify. Test: Home > tap coin balance > Store > Go VIP > Monthly, confirm with a Sandbox Apple ID. A VIP badge appears on Home and in Profile within a few seconds.",
   "reviewScreenshot": "store/review/subscription-review.png",
-  "promotionalImage": "store/promo/vip-promotional-1024.png",
+  "promotionalImage": "store/promo/vip-monthly-promotional-1024.png",
   "winBackOffers": [
     {
       "offerId": "vip_monthly_winback",

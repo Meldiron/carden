@@ -1,44 +1,45 @@
 #!/usr/bin/env python3
 """Build the App Store Connect side assets:
 
-  store/promo/app-icon-1024.png          1024x1024 icon, RGB (no alpha)
-  store/promo/vip-promotional-1024.png   1024x1024 VIP promotional image
-  store/review/subscription-review.png   store screen showing the VIP card
-  store/review/iap-review-boosters.png   store scrolled to Tickets and Boosters (ticket and booster products)
+  store/promo/app-icon-1024.png                  1024x1024 icon, RGB (no alpha)
+  store/promo/vip-monthly-promotional-1024.png   VIP Monthly promotional image
+  store/promo/vip-yearly-promotional-1024.png    VIP Yearly promotional image
+  store/review/subscription-review.png           store screen showing the VIP card
+  store/review/iap-review-boosters.png           store scrolled to Tickets and Boosters (ticket and booster products)
 
-Usage (repo root, Pillow installed):  python tools/store/make_promo.py
+The promotional images (owner's pick, 2026-11-04) are drawn by tools/brand/vip-promo.js: a ring of six
+glass segments in the icon's material around a picture, one image per plan and no text at all. App Review
+rejected 2.0.0 under Guideline 2.3.2 for one image shared by both plans, small text and a price reference
+("7 days free"); the apple-release skill has the rules. The pictures are catalogue pictures (CC0), cropped
+to a square in store/promo/sources/ (PICTURES below).
+
+Usage (repo root; Pillow, node and a Chromium as for tools/brand/export_icon.py):  python tools/store/make_promo.py
 """
 from __future__ import annotations
 
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools/brand"))
+from export_icon import render  # noqa: E402  (headless Chromium, drawn at 2048 px)
+
 ICON_SRC = ROOT / "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png"
 RAW_STORE_VIP = ROOT / "store/raw/12_store_vip.png"
 RAW_STORE_BOOSTERS = ROOT / "store/raw/35_store_boosters_light.png"
 PROMO = ROOT / "store/promo"
 REVIEW = ROOT / "store/review"
+VIP_PROMO_JS = ROOT / "tools/brand/vip-promo.js"
 
-BG = (242, 242, 244)
-INK = (17, 24, 39)
-MUTED = (107, 114, 128)
-ACCENT = (0x2F, 0x4F, 0xBF)  # Brand.accent (cobalt)
-EDGE = (205, 205, 210)
-SF = "/System/Library/Fonts/SFNS.ttf"
-
-
-def font(size: int, weight: str) -> ImageFont.FreeTypeFont:
-    f = ImageFont.truetype(SF, size)
-    f.set_variation_by_name(weight)
-    return f
-
-
-def rounded_mask(size: tuple[int, int], radius: int) -> Image.Image:
-    big = Image.new("L", (size[0] * 2, size[1] * 2), 0)
-    ImageDraw.Draw(big).rounded_rectangle((0, 0, big.width - 1, big.height - 1), radius * 2, fill=255)
-    return big.resize(size, Image.LANCZOS)
+# The picture in each plan's ring: a square crop of a catalogue picture (puzzle id, its licence).
+PICTURES = {
+    "monthly": ("sources/vip-monthly-iceberg.jpg", "p-3fa6fc2a393c, Iceberg wall, Travel Photographer, stocksnap, CC0"),
+    "yearly": ("sources/vip-yearly-balloon.jpg", "evpack-happiness-2027-14, Hot air balloon, rawpixel, CC0"),
+}
 
 
 def app_icon_no_alpha() -> Image.Image:
@@ -48,36 +49,14 @@ def app_icon_no_alpha() -> Image.Image:
     return flat
 
 
-def vip_promo(icon: Image.Image) -> Image.Image:
-    S = 1024
-    im = Image.new("RGB", (S, S), BG)
-    d = ImageDraw.Draw(im)
-
-    # Icon tile, iOS-style corner radius (~22%), thin edge.
-    size = 440
-    tile = icon.resize((size, size), Image.LANCZOS)
-    mask = rounded_mask((size, size), int(size * 0.22))
-    x = (S - size) // 2
-    y = 130
-    edge = Image.new("RGB", (size + 4, size + 4), EDGE)
-    im.paste(edge, (x - 2, y - 2), rounded_mask((size + 4, size + 4), int(size * 0.22) + 2))
-    im.paste(tile, (x, y), mask)
-
-    # Word mark.
-    f_vip = font(200, "Bold")
-    tw = d.textlength("VIP", font=f_vip)
-    d.text(((S - tw) / 2 - 6, y + size + 36), "VIP", font=f_vip, fill=ACCENT)
-
-    f_sub = font(44, "Medium")
-    sub = "Every pack unlocked. No videos. 7 days free."
-    sw = d.textlength(sub, font=f_sub)
-    d.text(((S - sw) / 2, y + size + 36 + 232), sub, font=f_sub, fill=INK)
-
-    f_name = font(34, "Regular")
-    name = "Carden"
-    nw = d.textlength(name, font=f_name)
-    d.text(((S - nw) / 2, S - 86), name, font=f_name, fill=MUTED)
-    return im
+def vip_promo(variant: str) -> Image.Image:
+    picture, _credit = PICTURES[variant]
+    svg = subprocess.run(["node", str(VIP_PROMO_JS), variant, str(PROMO / picture)], check=True, capture_output=True,
+                         text=True).stdout
+    with tempfile.TemporaryDirectory() as d:
+        drawn = render(svg, Path(d) / "promo.png")
+    # Apple wants 1024 x 1024, RGB, flattened (no alpha).
+    return drawn.convert("RGB").resize((1024, 1024), Image.LANCZOS)
 
 
 def main() -> None:
@@ -88,9 +67,11 @@ def main() -> None:
     icon.save(PROMO / "app-icon-1024.png", "PNG", optimize=True)
     print("wrote store/promo/app-icon-1024.png", icon.size, icon.mode)
 
-    promo = vip_promo(icon)
-    promo.save(PROMO / "vip-promotional-1024.png", "PNG", optimize=True)
-    print("wrote store/promo/vip-promotional-1024.png", promo.size, promo.mode)
+    for variant in PICTURES:
+        promo = vip_promo(variant)
+        out = PROMO / f"vip-{variant}-promotional-1024.png"
+        promo.save(out, "PNG", optimize=True)
+        print(f"wrote {out.relative_to(ROOT)}", promo.size, promo.mode)
 
     if RAW_STORE_VIP.exists():
         shot = Image.open(RAW_STORE_VIP).convert("RGB")

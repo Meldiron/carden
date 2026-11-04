@@ -230,5 +230,6 @@ function svg(id, mode, opts = {}) {
 }
 const FINAL = "FV1";
 if (typeof window !== "undefined") window.CARDEN5 = { ICONS, tile, svg, FINAL, DARKISH, roundPoly };
-if (typeof module !== "undefined") module.exports = { ICONS, tile, svg, FINAL };
+// makeCtx, roundPoly and circ are shared with tools/brand/vip-promo.js (the VIP promotional images).
+if (typeof module !== "undefined") module.exports = { ICONS, tile, svg, FINAL, makeCtx, roundPoly, circ };
 })();

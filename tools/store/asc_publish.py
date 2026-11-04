@@ -1042,8 +1042,55 @@ def sync_winback_offers(s: Store, sid: str, pid: str, cfg: dict) -> None:
         s.c.create("winBackOffers", attrs, {"subscription": rel("subscriptions", sid), "prices": {"data": refs}}, included=included)
 
 
+SUBSCRIPTION_FILES = ("vip_monthly.json", "vip_yearly.json")
+
+
+def check_promotional_images() -> None:
+    """Each plan needs its own promotional image: App Review rejected 2.0.0 (Guideline 2.3.2, 2026-11-04)
+    for one image shared by both plans, small text and a price reference. Refuses a missing file, two plans
+    naming the same file, or two files with the same content (test/store_promo_test.dart checks the same)."""
+    seen: dict[str, str] = {}
+    for name in SUBSCRIPTION_FILES:
+        cfg = read_json(SUBS_DIR / name)
+        path = ROOT / cfg["promotionalImage"]
+        if not path.exists():
+            sys.exit(f"{name}: promotional image {cfg['promotionalImage']} not found (python tools/store/make_promo.py)")
+        digest = md5_of(path)
+        if digest in seen:
+            sys.exit(f"{name}: promotional image {cfg['promotionalImage']} is the same as {seen[digest]}'s; "
+                     "Apple rejects duplicate promotional images (Guideline 2.3.2)")
+        seen[digest] = name
+
+
+def sync_promotional_image(s: Store, sid: str, pid: str, path: Path) -> None:
+    """Keep exactly this file as the plan's promotional image: an image with another file name or content
+    is deleted first (the rejected shared image of 2.0.0 included), then the file is uploaded."""
+    images = s.c.get_list(f"/v1/subscriptions/{sid}/images")
+    pending = [i for i in images if (attr(i, "assetDeliveryState") or {}).get("state") in ("AWAITING_UPLOAD", "FAILED")]
+    keep = []
+    for img in (i for i in images if i not in pending):
+        checksum = attr(img, "sourceFileChecksum")
+        if attr(img, "fileName") == path.name and checksum in (None, md5_of(path)):
+            keep.append(img)
+            continue
+        log(f"  subscriptionImages: {attr(img, 'fileName')} is not the current {path.name}, replacing it")
+        try:
+            s.c.request("DELETE", f"/v1/subscriptionImages/{img['id']}")
+        except ApiError as e:
+            if e.status == 409:
+                sys.exit(f"  {pid}: Apple keeps the promotional image while the plan sits in a review submission ({e}). "
+                         "Take the plan's item out of the submission, run subscriptions again, then put it back "
+                         "(apple-release skill, 'Promotional images').")
+            raise
+    if keep:
+        log(f"  subscriptionImages: {path.name} already present, keeping it")
+    else:
+        s.upload_asset("subscriptionImages", {"subscription": rel("subscriptions", sid)}, path, pending)
+
+
 def cmd_subscriptions(s: Store) -> None:
     log("== subscriptions")
+    check_promotional_images()
     group_cfg = read_json(SUBS_DIR / "group.json")
     groups = s.c.get_list(f"/v1/apps/{APP_ID}/subscriptionGroups", {"filter[referenceName]": group_cfg["referenceName"]})
     if groups:
@@ -1070,7 +1117,7 @@ def cmd_subscriptions(s: Store) -> None:
 
     in_group = {attr(x, "productId"): x for x in s.c.get_list(f"/v1/subscriptionGroups/{gid}/subscriptions")}
     territories = s.territories()
-    for name in ("vip_monthly.json", "vip_yearly.json"):
+    for name in SUBSCRIPTION_FILES:
         cfg = read_json(SUBS_DIR / name)
         pid = cfg["productId"]
         log(f"  -- {pid}")
@@ -1128,12 +1175,7 @@ def cmd_subscriptions(s: Store) -> None:
         shot = s.drop_if_changed("subscriptionAppStoreReviewScreenshots", shot, ROOT / cfg["reviewScreenshot"])
         s.upload_asset("subscriptionAppStoreReviewScreenshots", {"subscription": rel("subscriptions", sid)},
                        ROOT / cfg["reviewScreenshot"], [shot] if shot else [])
-        images = s.c.get_list(f"/v1/subscriptions/{sid}/images")
-        live = [i for i in images if ((attr(i, "assetDeliveryState") or {}).get("state")) not in ("AWAITING_UPLOAD", "FAILED")]
-        if live:
-            log(f"  subscriptionImages: image already present ({attr(live[0], 'fileName')}), keeping it")
-        else:
-            s.upload_asset("subscriptionImages", {"subscription": rel("subscriptions", sid)}, ROOT / cfg["promotionalImage"], images)
+        sync_promotional_image(s, sid, pid, ROOT / cfg["promotionalImage"])
 
         avail = s.c.get_one(f"/v1/subscriptions/{sid}/subscriptionAvailability")
         if avail:
